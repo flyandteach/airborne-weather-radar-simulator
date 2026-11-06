@@ -1,0 +1,2547 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="data:," />
+    <title>Airborne Weather Radar Simulator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+    <style>
+      :root{
+        --bg:#07090c; --panel:#10151b; --panel2:#161d26; --edge:#26313e; --edge2:#33465a;
+        --ink:#d7e3ee; --dim:#8fa5b8; --faint:#5d7185;
+        --cyan:#37e2ee; --green:#2fe07a; --amber:#ffb02e; --red:#ff4438; --mag:#ff3fd4;
+        --mono:'Share Tech Mono',ui-monospace,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
+        --disp:'Rajdhani','Segoe UI',system-ui,-apple-system,'Helvetica Neue',sans-serif;
+      }
+      *{box-sizing:border-box}
+      html,body{margin:0;padding:0}
+      body{background:var(--bg);color:var(--ink);font-family:var(--disp);font-size:16px;line-height:1.4;
+        background-image:radial-gradient(1200px 500px at 50% -10%,#101a24 0%,transparent 60%);}
+      .app{max-width:1560px;margin:0 auto;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) 372px;gap:14px;align-items:start}
+      .main-col{min-width:0}
+      /* ---------- view toolbar ---------- */
+      .viewbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+      .seg{display:inline-flex;background:var(--panel);border:1px solid var(--edge);border-radius:8px;overflow:hidden}
+      .seg button{appearance:none;border:0;background:transparent;color:var(--dim);font-family:var(--disp);font-weight:700;
+        letter-spacing:.08em;font-size:14px;padding:8px 14px;cursor:pointer;border-right:1px solid var(--edge)}
+      .seg button:last-child{border-right:0}
+      .seg button.on{background:#1d3a4a;color:var(--cyan);box-shadow:inset 0 0 0 1px #2b5a70}
+      .seg button:hover{color:var(--ink)}
+      .viewbar .spacer{flex:1}
+      .generic-note{margin:0 0 10px;background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:9px 13px;font-size:14px;color:var(--dim);line-height:1.45}
+      .generic-note b{color:var(--ink)}
+      .pillbtn{appearance:none;background:var(--panel);border:1px solid var(--edge);color:var(--ink);border-radius:8px;
+        font-family:var(--disp);font-weight:700;letter-spacing:.06em;font-size:14px;padding:8px 14px;cursor:pointer}
+      .pillbtn.on{color:var(--amber);border-color:#6b5320;background:#241b0c}
+      .pillbtn:hover{border-color:var(--edge2)}
+      /* ---------- displays ---------- */
+      .displays{display:grid;gap:12px}
+      .displays.v-split{grid-template-columns:1fr 1fr}
+      .displays.v-top,.displays.v-side{grid-template-columns:1fr}
+      .disp-wrap{position:relative;background:#000;border:1px solid var(--edge2);border-radius:14px;overflow:hidden;
+        box-shadow:0 0 0 4px #0b0f14,0 0 0 5px #1c2632,0 18px 40px rgba(0,0,0,.55)}
+      .disp-wrap canvas{display:block;width:100%;height:auto}
+      .disp-wrap .tag{position:absolute;top:8px;left:10px;font-family:var(--mono);font-size:12px;color:var(--cyan);
+        letter-spacing:.14em;opacity:.85;pointer-events:none}
+      .displays.v-top .side-wrap,
+      .displays.v-side .top-wrap{display:none}
+      .displays.v-top .top-wrap{max-width:760px;margin:0 auto;width:100%}
+      .displays.v-side .side-wrap{max-width:980px;margin:0 auto;width:100%}
+      /* ---------- legend ---------- */
+      .legend{margin-top:12px;background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:10px 14px;
+        display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;font-size:14px;color:var(--dim)}
+      .legend b{color:var(--ink);letter-spacing:.06em}
+      .chip{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:6px;border:1px solid rgba(255,255,255,.25)}
+      .chip.spk{background:radial-gradient(circle at 35% 35%,#ff3fd4 2px,transparent 2.5px),radial-gradient(circle at 70% 65%,#ff3fd4 2px,transparent 2.5px),#20001a}
+      .chip.pac{background:repeating-linear-gradient(45deg,#ffd21f 0 4px,#151310 4px 8px)}
+      .chip.gnd{background:linear-gradient(90deg,#2fe07a 0%,#a8e063 40%,#ffd21f 65%,#ff2a1e 100%)}
+      /* ---------- side panels ---------- */
+      .panel-col{display:flex;flex-direction:column;gap:12px;min-width:0}
+      section.card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:14px}
+      section.card h2{margin:0 0 10px;font-size:15px;letter-spacing:.18em;color:var(--cyan);font-weight:700;text-transform:uppercase}
+      section.card h2 .sub{color:var(--faint);letter-spacing:.05em;text-transform:none;font-size:13px}
+      .wxr{background:linear-gradient(180deg,#171e27,#10151b);border:1px solid var(--edge2);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+      .ctl-row{margin-bottom:14px}
+      .ctl-row:last-child{margin-bottom:2px}
+      .ctl-label{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;letter-spacing:.16em;
+        color:var(--dim);text-transform:uppercase;margin-bottom:6px}
+      .ctl-label .val{font-family:var(--mono);font-size:15px;color:var(--cyan);letter-spacing:0}
+      .ctl-label .val.warn{color:var(--amber)}
+      .modes{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+      .modes button,.ranges button{appearance:none;background:#0b0f14;border:1px solid var(--edge);color:var(--dim);
+        border-radius:7px;font-family:var(--disp);font-weight:700;font-size:13.5px;letter-spacing:.05em;padding:8px 2px;cursor:pointer}
+      .modes button.on{background:#123c33;color:var(--green);border-color:#1f6b4d;box-shadow:0 0 10px rgba(47,224,122,.18)}
+      .modes button.off-on{background:#3a1414;color:#ff8a80;border-color:#6e2a24}
+      .ranges{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+      .ranges button.on{background:#1d3a4a;color:var(--cyan);border-color:#2b5a70}
+      input[type=range]{width:100%;accent-color:var(--cyan);height:26px;cursor:pointer;margin:0}
+      .ticks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:-2px}
+      .switches{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+      .sw{display:flex;align-items:center;gap:8px;background:#0b0f14;border:1px solid var(--edge);border-radius:8px;
+        padding:7px 9px;cursor:pointer;user-select:none}
+      .sw .dot{width:26px;height:15px;border-radius:9px;background:#2a3644;position:relative;flex:none;transition:background .15s}
+      .sw .dot::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#7d93a8;transition:left .15s,background .15s}
+      .sw.on .dot{background:#14532d}
+      .sw.on .dot::after{left:13px;background:var(--green)}
+      .sw:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+      .pillbtn:focus-visible,.seg button:focus-visible,.modes button:focus-visible,.ranges button:focus-visible,select.scen:focus-visible,input[type=range]:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+      .sw .nm{font-size:13.5px;font-weight:700;letter-spacing:.06em;color:var(--dim)}
+      .sw.on .nm{color:var(--ink)}
+      .sw small{display:block;font-weight:500;color:var(--faint);font-size:11.5px;letter-spacing:0;line-height:1.15}
+      .minirow{display:flex;gap:6px;flex-wrap:wrap}
+      .minirow .pillbtn{flex:1;padding:7px 4px;font-size:13.5px;text-align:center}
+      select.scen{width:100%;background:#0b0f14;color:var(--ink);border:1px solid var(--edge2);border-radius:8px;
+        font-family:var(--disp);font-weight:600;font-size:15.5px;padding:9px 10px;cursor:pointer}
+      .brief{font-size:14.5px;color:var(--dim);margin-top:9px}
+      .brief b{color:var(--ink)}
+      .trap{margin-top:8px;border:1px solid #6b5320;background:#241b0c;color:#ffd58a;border-radius:8px;padding:8px 10px;font-size:14px}
+      /* instructor */
+      .inst-toggle{display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+      dl.reads{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:14.5px}
+      dl.reads dt{color:var(--faint);letter-spacing:.04em;white-space:nowrap}
+      dl.reads dd{margin:0;font-family:var(--mono);font-size:13.5px;color:var(--ink)}
+      dl.reads dd.good{color:var(--green)} dl.reads dd.bad{color:#ff7a6e} dl.reads dd.warn{color:var(--amber)}
+      .verdict{margin-top:10px;border-radius:8px;padding:9px 11px;font-size:14.5px;background:#0b0f14;border:1px solid var(--edge)}
+      .verdict.good{border-color:#1f6b4d;color:#b9f4d2}
+      .verdict.bad{border-color:#6e2a24;color:#ffc4bd}
+      .verdict.warn{border-color:#6b5320;color:#ffe1a3}
+      .challenge{margin-top:12px;border-top:1px dashed var(--edge2);padding-top:11px}
+      .challenge .q{font-size:15px}
+      .challenge .q b{color:var(--amber);letter-spacing:.06em}
+      .challenge .fb{margin-top:8px;font-size:14.5px;display:none}
+      .challenge .fb.show{display:block}
+      .challenge .fb.ok{color:var(--green)} .challenge .fb.no{color:#ffb59d}
+      .done-badge{display:none;font-family:var(--mono);font-size:12px;color:#06280f;background:var(--green);
+        border-radius:4px;padding:2px 7px;margin-left:8px;vertical-align:2px}
+      .done-badge.show{display:inline-block}
+      .beampaint{margin-top:12px;border-top:1px dashed var(--edge2);padding-top:11px}
+      .beampaint h3{margin:0 0 8px;font-size:13.5px;letter-spacing:.14em;color:var(--cyan);text-transform:uppercase}
+      table.bptable{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+      table.bptable th{color:var(--faint);font-weight:400;text-align:right;padding:3px 4px;border-bottom:1px solid var(--edge);letter-spacing:.02em}
+      table.bptable th:first-child{text-align:left}
+      table.bptable td{color:var(--ink);text-align:right;padding:3px 4px;border-bottom:1px solid rgba(38,49,62,.55);white-space:nowrap}
+      table.bptable td:first-child{text-align:left;color:var(--cyan)}
+      table.bptable tr.refrow td{color:var(--amber)}
+      table.bptable tr.refrow td:first-child{color:var(--amber)}
+      .bp-sky{font-size:13px;color:var(--dim);margin-top:7px;line-height:1.45}
+      .bp-sky b{color:var(--ink)}
+      .bp-verdict{margin-top:8px;border-radius:8px;padding:9px 11px;font-size:14px;background:#0b0f14;border:1px solid var(--edge)}
+      .bp-verdict.good{border-color:#1f6b4d;color:#b9f4d2}
+      .bp-verdict.bad{border-color:#6e2a24;color:#ffc4bd}
+      .bp-verdict.warn{border-color:#6b5320;color:#ffe1a3}
+      .formulas{margin-top:10px;font-size:13.5px;color:var(--dim);line-height:1.5}
+      .formulas b{color:var(--ink)}
+      .formulas .fx{font-family:var(--mono);font-size:12.5px;color:var(--cyan);display:block;margin:3px 0 7px}
+      .formulas .worked{border:1px solid var(--edge2);border-radius:8px;padding:8px 10px;margin-top:8px;color:var(--ink);font-family:var(--mono);font-size:12.5px;line-height:1.55}
+      /* g meter + aircraft events */
+      .glegend{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:11.5px;margin-top:6px}
+      .gread{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:13.5px;color:var(--dim);margin-top:7px}
+      .gread b{color:var(--cyan)}
+      .fxstatus{margin-top:8px;font-size:13.5px;border:1px solid var(--edge);border-radius:8px;padding:7px 9px;background:#0b0f14;color:var(--dim)}
+      .fxstatus.warn{border-color:#6b5320;color:#ffe1a3}
+      .fxstatus.bad{border-color:#6e2a24;color:#ffc4bd}
+      .fxlog{margin-top:10px;border:1px solid var(--edge);border-radius:8px;background:#0b0f14;padding:8px 10px;max-height:168px;overflow-y:auto}
+      .fxlog-t{font-size:12px;letter-spacing:.14em;color:var(--cyan);text-transform:uppercase;margin-bottom:5px}
+      .fxe{font-size:13px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(38,49,62,.5);line-height:1.45}
+      .fxe:first-child{border-top:0}
+      .fxe .lt{font-family:var(--mono);color:var(--faint);margin-right:7px;font-size:12px}
+      /* lightning flash + disintegration overlay */
+      #flashFx{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:90}
+      #deadOverlay{position:fixed;inset:0;background:rgba(24,2,2,.93);z-index:80;display:flex;align-items:center;justify-content:center;padding:20px}
+      #deadOverlay[hidden]{display:none}
+      #deadOverlay .box{max-width:580px;width:100%;text-align:center;border:2px solid var(--red);border-radius:14px;padding:30px 28px;background:#160607;box-shadow:0 24px 60px rgba(0,0,0,.7)}
+      #deadOverlay h1{color:#ff6b5e;font-size:25px;letter-spacing:.05em;margin:0 0 12px;line-height:1.25}
+      #deadOverlay p{color:var(--ink);font-size:15.5px;margin:0 0 12px}
+      #deadOverlay .lesson-line{color:#ffd58a;font-size:14.5px}
+      #deadOverlay .pillbtn{margin-top:8px;border-color:#6e2a24;color:#ffc4bd;font-size:15px;padding:10px 18px}
+      /* lessons footer */
+      .lessons{max-width:1560px;margin:0 auto;padding:0 14px 26px}
+      .lessons h2{font-size:16px;letter-spacing:.18em;color:var(--cyan);text-transform:uppercase;margin:6px 0 10px}
+      .lesson-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+      .lesson{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:12px 14px;font-size:14.5px;color:var(--dim)}
+      .lesson b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px;letter-spacing:.03em}
+      /* ---------- aircraft & weather learning view ---------- */
+      .outside-panel{margin-top:12px;background:var(--panel);border:1px solid var(--edge2);border-radius:12px;padding:12px 14px}
+      .outside-panel h2{margin:0 0 4px;font-size:15px;letter-spacing:.16em;color:var(--amber);text-transform:uppercase}
+      .outside-panel .truth-note{font-size:14px;color:var(--dim);margin-bottom:10px}
+      .outside-panel .truth-note b{color:var(--ink)}
+      .outside-toggles{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+      .outside-view{margin-top:12px}
+      .outside-view .cap{font-family:var(--mono);font-size:13px;color:var(--cyan);margin-top:6px;line-height:1.45}
+      .outside-view .cap.dim2{color:var(--dim)}
+      .outside-canvas-wrap{background:#000;border:1px solid var(--edge2);border-radius:10px;overflow:hidden}
+      .outside-canvas-wrap canvas{display:block;width:100%;height:auto}
+      .ext-controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+      .ext-controls .lbl{font-size:13px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin-right:2px}
+      @media (max-width:1080px){
+        .app{grid-template-columns:1fr}
+        .displays.v-split{grid-template-columns:1fr}
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="main-col">
+        <div class="viewbar">
+          <div class="seg" id="viewSeg" role="group" aria-label="View mode">
+            <button data-view="split" class="on">SPLIT</button>
+            <button data-view="top">TOP · 2D</button>
+            <button data-view="side">SIDE · PROFILE</button>
+          </div>
+          <div class="spacer"></div>
+          <div class="seg" id="simSeg" role="group" aria-label="Simulation speed">
+            <button data-sim="1" class="on">1×</button>
+            <button data-sim="2">2×</button>
+            <button data-sim="4">4×</button>
+          </div>
+          <button class="pillbtn" id="pauseBtn" aria-pressed="false">❚❚ PAUSE FLIGHT</button>
+        </div>
+
+        <p class="generic-note"><b>Generic training approximation.</b> This simulator models a <i>generic</i> airborne weather radar for technique training. The beam width (3.5°), predictive-windshear ranges and thresholds, gain steps and other settings are representative training values — <b>not</b> the specifications of the RDR-4000 or any other specific radar, and the aircraft effects are not a structural model of any specific aircraft.</p>
+
+        <div class="displays v-split" id="displays">
+          <div class="disp-wrap top-wrap">
+            <canvas id="topC" width="740" height="700"></canvas>
+            <div class="tag">ND · WXR PLAN</div>
+          </div>
+          <div class="disp-wrap side-wrap">
+            <canvas id="sideC" width="940" height="540"></canvas>
+            <div class="tag">VERTICAL PROFILE</div>
+          </div>
+        </div>
+
+        <div class="legend">
+          <span><b>Reflectivity</b></span>
+          <span><span class="chip" style="background:#22d84f"></span>20–30 dBZ</span>
+          <span><span class="chip" style="background:#ffd21f"></span>30–40</span>
+          <span><span class="chip" style="background:#ff2a1e"></span>40–50</span>
+          <span><span class="chip" style="background:#ff2fd6"></span>&gt;50 dBZ in WX</span>
+          <span><span class="chip spk"></span>Magenta speckle = turbulence (WX+T only, ≤40 NM)</span>
+          <span><span class="chip pac"></span>PAC ALERT arc</span>
+          <span><span class="chip gnd"></span>Ground returns — fuzzy green speckle at grazing tilt, solidifying through yellow to solid red as tilt goes down</span>
+          <span><span class="chip" style="background:#000"></span>Black wedge behind a strong cell = attenuation shadow — no weather or ground return gets through; a cell eaten away on its far side (lens-shaped) is attenuating</span>
+          <span><span class="chip" style="background:#ffe94a"></span>ϟ Lightning strike</span>
+        </div>
+
+        <section class="outside-panel" id="outsidePanel" aria-label="Aircraft and weather learning view">
+          <h2>Aircraft &amp; Weather — Learning</h2>
+          <div class="truth-note"><b>Shows TRUE weather — what is actually out there, not what the radar paints.</b> This external view is for learning only. It is <b>not</b> a radar display and not a radar view mode — the radar above stays SPLIT / TOP / SIDE. It is OFF by default and only renders when switched on.</div>
+          <div class="outside-toggles">
+            <div class="sw" id="swExternal" role="switch" tabindex="0" aria-checked="false" aria-label="Aircraft and weather external view"><span class="dot"></span><span class="nm">AIRCRAFT &amp; WEATHER<small>External 3D learning diorama</small></span></div>
+          </div>
+
+          <div class="outside-view" id="externalWrap" hidden>
+            <div class="outside-canvas-wrap"><canvas id="extC" width="1100" height="560"></canvas></div>
+            <div class="ext-controls">
+              <span class="lbl">Camera</span>
+              <button class="pillbtn" data-cam="chase">CHASE</button>
+              <button class="pillbtn" data-cam="side">SIDE</button>
+              <button class="pillbtn" data-cam="oblique">TOP-OBLIQUE</button>
+              <span style="flex:1"></span>
+              <label style="display:flex;align-items:center;gap:7px;font-size:14px;color:var(--ink);cursor:pointer"><input type="checkbox" id="beamChk" checked style="width:17px;height:17px;accent-color:#37e2ee" /> Show radar beam</label>
+            </div>
+            <div class="cap" id="extCaption">—</div>
+            <div class="cap dim2">Drag on the picture to orbit. Translucent towers are the true storms (inner opaque column = peak-reflectivity core); flat caps are anvils. The cyan wedge is the radar beam at your current tilt — watch which slice of each tower it actually paints, and compare with the Beam Painting table in the debrief.</div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="panel-col">
+        <!-- WXR control unit -->
+        <section class="card wxr">
+          <h2>WXR Control Panel <span class="sub">— generic training panel</span></h2>
+          <div class="ctl-row">
+            <div class="ctl-label"><span>System / Mode</span><span class="val" id="modeVal">WX</span></div>
+            <div class="modes" id="modeSeg">
+              <button data-mode="OFF">OFF</button>
+              <button data-mode="STBY">STBY</button>
+              <button data-mode="WX" class="on">WX</button>
+              <button data-mode="WXT">WX+T</button>
+              <button data-mode="MAP">MAP</button>
+            </div>
+          </div>
+          <div class="ctl-row">
+            <div class="ctl-label"><span>Gain</span><span class="val" id="gainVal">CAL</span></div>
+            <input type="range" id="gainSlider" min="-10" max="10" step="0.5" value="0" aria-label="Gain dB" />
+            <div class="ticks"><span>−10</span><span>−5</span><span>CAL 0</span><span>+5</span><span>+10 dB</span></div>
+            <div class="minirow" style="margin-top:6px">
+              <button class="pillbtn" id="calBtn">RETURN TO CAL</button>
+            </div>
+          </div>
+          <div class="ctl-row">
+            <div class="ctl-label"><span>Tilt</span><span class="val" id="tiltVal">+2.0°</span></div>
+            <input type="range" id="tiltSlider" min="-15" max="15" step="0.25" value="2" aria-label="Tilt degrees" />
+            <div class="ticks"><span>−15° DN</span><span>0</span><span>+15° UP</span></div>
+            <div class="minirow" style="margin-top:6px">
+              <button class="pillbtn" id="autoTiltBtn" aria-pressed="false">AUTO TILT</button>
+              <button class="pillbtn" id="gndMethodBtn">GROUND-RETURN METHOD</button>
+            </div>
+          </div>
+          <div class="ctl-row">
+            <div class="ctl-label"><span>Range</span><span class="val" id="rangeVal">80 NM</span></div>
+            <div class="ranges" id="rangeSeg">
+              <button data-range="10">10</button>
+              <button data-range="20">20</button>
+              <button data-range="40">40</button>
+              <button data-range="80" class="on">80</button>
+              <button data-range="160">160</button>
+              <button data-range="320">320</button>
+            </div>
+          </div>
+          <div class="ctl-row">
+            <div class="ctl-label"><span>Systems</span></div>
+            <div class="switches">
+              <div class="sw on" id="swPWS" role="switch" tabindex="0" aria-checked="true" aria-label="PWS — predictive windshear"><span class="dot"></span><span class="nm">PWS<small>Predictive windshear</small></span></div>
+              <div class="sw on" id="swPAC" role="switch" tabindex="0" aria-checked="true" aria-label="PAC — path attenuation alert"><span class="dot"></span><span class="nm">PAC<small>Path atten. alert</small></span></div>
+              <div class="sw on" id="swLTG" role="switch" tabindex="0" aria-checked="true" aria-label="Lightning strike overlay"><span class="dot"></span><span class="nm">LIGHTNING<small>Strike overlay</small></span></div>
+              <div class="sw" id="swTURB" role="switch" tabindex="0" aria-checked="false" aria-label="TURB — Doppler turbulence (WX+T)"><span class="dot"></span><span class="nm">TURB<small>Doppler turbulence</small></span></div>
+              <div class="sw" id="swGCS" role="switch" tabindex="0" aria-checked="false" aria-label="GCS — ground clutter suppression"><span class="dot"></span><span class="nm">GCS<small>Ground clutter suppr.</small></span></div>
+              <div class="sw on" id="swTruth" role="switch" tabindex="0" aria-checked="true" aria-label="Show truth — ghost of real weather"><span class="dot"></span><span class="nm">SHOW TRUTH<small>Ghost of real weather</small></span></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Flight controls -->
+        <section class="card">
+          <h2>Flight Controls</h2>
+          <div class="ctl-row">
+            <div class="ctl-label"><span>Altitude</span><span class="val" id="altVal">35,000 FT</span></div>
+            <input type="range" id="altSlider" min="1500" max="41000" step="250" value="35000" aria-label="Altitude feet" />
+          </div>
+          <div class="ctl-row">
+            <div class="ctl-label"><span>Ground speed</span><span class="val" id="spdVal">240 KT</span></div>
+            <input type="range" id="spdSlider" min="80" max="480" step="5" value="240" aria-label="Speed knots" />
+          </div>
+          <div class="ctl-row">
+            <div class="ctl-label"><span>Heading <span style="letter-spacing:0;text-transform:none">(now <span class="val" id="hdgVal" style="font-size:13px">360°</span>)</span></span><span class="val" id="distVal">0 NM FLOWN</span></div>
+            <div class="minirow">
+              <button class="pillbtn" data-dev="-30">◀◀ −30°</button>
+              <button class="pillbtn" data-dev="-15">◀ −15°</button>
+              <button class="pillbtn" data-dev="15">+15° ▶</button>
+              <button class="pillbtn" data-dev="30">+30° ▶▶</button>
+            </div>
+            <div class="minirow" style="margin-top:6px">
+              <button class="pillbtn" id="resetFlightBtn">RESET FLIGHT / SCENARIO</button>
+            </div>
+          </div>
+          <div class="ctl-row" style="border-top:1px dashed var(--edge2);padding-top:12px">
+            <div class="ctl-label"><span>G Meter — Load Factor</span><span class="val" id="gCatVal">SMOOTH</span></div>
+            <canvas id="gC" width="336" height="190" style="width:100%;height:auto;display:block;background:#0b0f14;border:1px solid var(--edge);border-radius:8px"></canvas>
+            <div class="glegend"><span style="color:var(--amber)">■ LIMIT +2.5 / −1.0 g</span><span style="color:var(--red)">■ ULTIMATE +3.75 / −1.5 g</span></div>
+            <div class="gread"><span>NOW <b id="gNowVal">1.00 g</b></span><span>PEAK <b id="gPeakVal">+1.00 / 1.00 g</b></span></div>
+            <div class="fxstatus" id="fxStatus">Calm air — 1.0 g, no airframe events.</div>
+          </div>
+        </section>
+
+        <!-- Scenario -->
+        <section class="card">
+          <h2>Weather Scenario</h2>
+          <select class="scen" id="scenSel" aria-label="Scenario"></select>
+          <div class="brief" id="scenWind" style="border:1px solid var(--edge2);border-radius:8px;padding:8px 10px;margin-top:9px;color:var(--ink)"></div>
+          <div class="brief" id="scenBrief"></div>
+          <div class="trap" id="scenTrap" style="display:none"></div>
+          <div class="minirow" style="margin-top:9px" id="dryRow" hidden>
+            <button class="pillbtn" id="dryBtn" aria-pressed="false">DRY MICROBURST: OFF</button>
+          </div>
+        </section>
+
+        <!-- Instructor -->
+        <section class="card">
+          <h2 class="inst-toggle" id="instHead">Instructor / Debrief <span class="sub" id="instCaret">▾ collapse</span></h2>
+          <div id="instBody">
+            <dl class="reads">
+              <dt>Steering wind</dt><dd id="rWind">—</dd>
+              <dt>Storm motion</dt><dd id="rMotion">—</dd>
+              <dt>Anvil (ref cell)</dt><dd id="rAnvil">—</dd>
+              <dt>Reference cell</dt><dd id="rCell">—</dd>
+              <dt>Beam center @ cell</dt><dd id="rBeam">—</dd>
+              <dt>Storm peak level</dt><dd id="rPeak">—</dd>
+              <dt>Tilt to paint core</dt><dd id="rTiltHint">—</dd>
+              <dt>Attenuation</dt><dd id="rAtt">—</dd>
+              <dt>PAC status</dt><dd id="rPac">—</dd>
+              <dt>PWS status</dt><dd id="rPws">—</dd>
+              <dt>Turbulence</dt><dd id="rTurb">—</dd>
+              <dt>Flight turbulence</dt><dd id="rFxTurb">—</dd>
+              <dt>Load factor (now)</dt><dd id="rGNow">—</dd>
+              <dt>Peak g this flight</dt><dd id="rGPeak">—</dd>
+              <dt>Lightning</dt><dd id="rLtg">—</dd>
+            </dl>
+            <div class="verdict" id="verdict">—</div>
+            <div class="fxlog" id="fxLogBox">
+              <div class="fxlog-t">Aircraft events — turbulence · G limits · lightning</div>
+              <div id="fxEntries"></div>
+            </div>
+            <div class="beampaint" id="beamPaint">
+              <h3>Beam Painting &amp; Formulas</h3>
+              <table class="bptable" aria-label="Painted altitude range by distance">
+                <thead><tr><th>Dist</th><th>Bottom</th><th>Center</th><th>Top</th></tr></thead>
+                <tbody id="bpRows"></tbody>
+              </table>
+              <div class="bp-sky" id="bpSky">—</div>
+              <div class="bp-verdict" id="bpVerdict">—</div>
+              <div class="bp-sky"><b>Echo top vs geometric top:</b> the SIDE view's <b>ECHO TOPS (≥20 dBZ)</b> line marks where reflectivity falls below 20 dBZ; the TOP view's cell labels show each storm's <b>geometric</b> top. The two numbers measure different things and can differ by several thousand feet — an echo top below the geometric top is normal, not a contradiction.</div>
+              <div class="formulas">
+                <b>Do it yourself — the pilot formulas</b> (approximations; the table above uses the simulator's exact beam math, so small differences are the curvature term):
+                <span class="fx">Beam center ≈ Aircraft alt + 100 × Range(NM) × Tilt(°)</span>
+                1° of tilt moves the beam about 100 ft per NM of range. Earth curvature raises the beam further at long range — the exact form used here is <span style="font-family:var(--mono)">h = alt + R·tan(tilt) + R²∕(2·k·R<sub>earth</sub>)</span>, with k = 4⁄3 (the 4⁄3-earth refraction model).
+                <span class="fx">Beam top / bottom ≈ Center ± 175 × Range(NM) &nbsp;·&nbsp; Beam thickness ≈ 350 × Range(NM) ft</span>
+                The beam is 3.5° wide, so the half-beam is 1.75° ≈ 175 ft per NM each side of center: about 3,500 ft thick at 10 NM, 14,000 ft at 40 NM. A distant storm can be "in the beam" over a huge altitude band — and a near storm only a thin slice of it.
+                <span class="fx">Painting the ground: beam paints ground at range R when Bottom(R) ≤ 0 · Ground range ≈ Altitude ∕ (100 × (downtilt + 1.75))</span>
+                Downtilt in degrees (positive number when tilted down). Approximation only — curvature pushes the real ground-intercept range a little further out.
+                <span class="fx">Tilt to center a storm ≈ (Target alt − Aircraft alt) ∕ (100 × Range(NM))</span>
+                Target the storm's reflective core — near the freezing level / melting level — not its top.
+                <div class="worked" id="bpWorked">—</div>
+              </div>
+            </div>
+            <div class="challenge">
+              <div class="q"><b>CHALLENGE</b><span class="done-badge" id="doneBadge">COMPLETE</span><br /><span id="chText"></span></div>
+              <div class="minirow" style="margin-top:9px">
+                <button class="pillbtn" id="checkBtn">CHECK MY SETUP</button>
+              </div>
+              <div class="fb" id="chFb"></div>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <footer class="lessons">
+      <h2>Key lessons — how to use this for training</h2>
+      <div class="lesson-grid">
+        <div class="lesson"><b>Tilt management</b>The beam is a flashlight, not a camera. Too high and you overshoot the storm's reflective core (the SIDE view shows the wedge passing over the cell); too low and you undershoot into ground returns. Rule of thumb: tilt so the beam center sits at the storm's peak-reflectivity level — near the freezing level — at the range of interest. Or use the ground-return method: tilt down until ground paints at the top of the display, then raise 1–2°.</div>
+        <div class="lesson"><b>Gain discipline</b>Gain adds or subtracts dB from every return. High gain makes weak weather look dangerous and saturates real cores; low gain can erase an embedded CB entirely. Use manual gain briefly to interrogate a cell — then always return to CAL, where the color thresholds mean what the legend says.</div>
+        <div class="lesson"><b>Attenuation &amp; PAC</b>Heavy rain absorbs radar energy — incrementally, as the beam penetrates the cell, so the attenuation shows <i>inside</i> the storm first: a strongly attenuating cell paints its full core on the near side but its far side is eaten away, collapsing into a <b>lens or crescent shape</b> (compare it with its true outline under Show Truth). Behind a red/magenta core the radar may be blind — a "gap" behind a squall line can be a radar shadow hiding another cell, not a safe hole, and the ground return is blacked out there too: <b>if a cell looks lens-shaped with a black wedge and no ground return behind it, it is attenuating — do not trust gaps behind it.</b> A PAC ALERT arc means exactly that: beyond that azimuth, the picture cannot be trusted. Deviate earlier and wider.</div>
+        <div class="lesson"><b>Turbulence limits</b>Doppler turbulence (magenta speckle in WX+T) only works inside ~40 NM and needs &gt;20 dBZ of return to measure. No speckle at 60 NM does <i>not</i> mean smooth air. And don't confuse the two magentas: in WX, solid magenta is &gt;50 dBZ; in WX+T, speckled magenta is turbulence.</div>
+        <div class="lesson"><b>Windshear envelope</b>Predictive windshear only protects you low and close: roughly below 2,300 ft AGL and within a few miles ahead, on takeoff and approach. At cruise it is inhibited and silent — no alert means no <i>detected</i> shear, not no hazard. A red WINDSHEAR alert means go around / escape now, no discussion.</div>
+        <div class="lesson"><b>Lightning limitations</b>Strike data shows where lightning <i>has been</i>, not where the cell is going. Anvil and downwind strikes can occur miles from any radar echo — a "clear" radar with strikes nearby is still a thunderstorm. Use lightning as a supplement to reflectivity, never a replacement.</div>
+        <div class="lesson"><b>Storm motion &amp; anvils</b>Cells drift with the steering wind — re-randomized every scenario load and shown in the Scenario and Instructor panels. Watch relative motion, not just range: a cell can drift into (or out of) your path. The anvil is the visible signature of upper winds: it develops over the first minute or so of sim time and spreads <b>downwind, in the direction the storm is moving</b>. Anvil ice is a poor radar target — it paints only light green (~20–28 dBZ) when your beam is up at storm-top altitude, and washes out first when you reduce gain — but it still carries lightning and turbulence risk well away from the core. Deviating <b>upwind</b> keeps you out of the anvil plume and the storm's path; deviating downwind puts you where the storm — and its anvil — are going.</div>
+        <div class="lesson"><b>Turbulence, G limits &amp; lightning</b>The G meter in Flight Controls reads the <i>true</i> air at your actual position and altitude — not what the radar paints. Near a strong cell you get light-to-moderate chop; inside a severe core (supercell, strong squall core, wet microburst parent) the gusts regularly cross the transport <b>limit</b> lines (+2.5 / −1.0 g, amber) and, if you stay, the <b>ultimate</b> lines (+3.75 / −1.5 g, red) — past ultimate the airframe disintegrates. Moderate weather will not break the aircraft; penetrating a severe core will. Fly very close to an electrically active cell and you can also take a <b>lightning strike</b>: the airframe survives it (airliners are built to), but the radar jumbles and resets — settings retained. The radar exists so you never have to find any of this out firsthand.</div>
+      </div>
+      <p style="margin:14px 2px 0;font-size:13.5px;color:var(--faint)">Training aid only — a simplified simulation of a generic airborne weather radar, built for learning weather-radar technique. Beam width (3.5°), predictive-windshear ranges/thresholds and other settings are representative training values, not the specifications of the RDR-4000 or any specific radar, and the aircraft effects are not a structural model of any specific aircraft. Not for navigation or actual flight, and no substitute for approved training, the aircraft flight manual, or the radar manufacturer's manual.</p>
+    </footer>
+
+    <div id="flashFx"></div>
+    <div id="deadOverlay" hidden>
+      <div class="box">
+        <h1>AIRCRAFT DISINTEGRATED DUE TO STRUCTURAL OVERLOAD</h1>
+        <p id="deadDetail"></p>
+        <p class="lesson-line">Severe convective cores can exceed transport-category ultimate load — the radar exists so you never go there. Deviate early, deviate wide.</p>
+        <button class="pillbtn" id="deadRestart">↻ RESTART SCENARIO</button>
+      </div>
+    </div>
+
+    <script>
+    'use strict';
+    /* ================================================================
+       AIRBORNE WEATHER RADAR SIMULATOR
+       Weather = set of cells. Radar samples true reflectivity along
+       a beam with real geometry (tilt, 3.5° beamwidth, 4/3-earth
+       curvature), applies gain and cumulative two-way attenuation
+       per radial, then paints standard WXR colors.
+       ================================================================ */
+    var FT = 6076.12;                 // ft per NM
+    var DEG = Math.PI/180;
+    var simTime = 0;                  // seconds of sim time
+    var strikes = [];                 // lightning strike objects {x,y,t0}
+    var flags = {};                   // per-scenario achievement flags
+
+    /* ---------------- state ---------------- */
+    var S = {
+      view:'split', mode:'WX', gain:0, tilt:2, autoTilt:false, range:80,
+      pws:true, pac:true, ltg:true, gcs:false, truth:false,
+      alt:35000, speed:240, heading:0, paused:false, simSpeed:1,
+      acX:0, acY:0, distFlown:0,
+      scenIdx:0, dryBurst:false, selected:null
+    };
+    var scen = null;                  // active scenario object
+
+    /* ---------------- scenario definitions ----------------
+       Cell: dx,dy = NM east/north of start point; r = radius NM;
+       top/base ft; peak dBZ; turb 0..1; ltn strikes/min.          */
+    function C(dx,dy,r,top,base,peak,turb,ltn,extra){
+      var c = {dx:dx,dy:dy,r:r,top:top,base:base,peak:peak,turb:turb,ltn:ltn,
+               phase:Math.random()*6.28, strat:false, name:'',
+               top0:top, peak0:peak, turb0:turb, ltn0:ltn};
+      if(extra) for(var k in extra) c[k]=extra[k];
+      randomizeShape(c);
+      return c;
+    }
+    /* Irregular storm shape: Fourier-perturbed radius by azimuth plus
+       1–3 satellite lobes. Stable for a given cell (no per-frame jitter);
+       re-randomized on every scenario load. */
+    function randomizeShape(c){
+      c.shape = { a1:0.10+Math.random()*0.11, p1:Math.random()*6.283,
+                  a2:0.07+Math.random()*0.09, p2:Math.random()*6.283,
+                  a3:0.04+Math.random()*0.06, p3:Math.random()*6.283 };
+      c.lobes = [];
+      var nl = 1 + (Math.random()*3|0);
+      for(var i=0;i<nl;i++) c.lobes.push({ ang:Math.random()*6.283, off:0.45+Math.random()*0.45, rad:0.38+Math.random()*0.30 });
+      c.tph = Math.random()*6.283;
+    }
+    function shapeR(c, ang){
+      var s = c.shape;
+      var f = 1 + s.a1*Math.cos(2*ang + s.p1) + s.a2*Math.cos(3*ang + s.p2) + s.a3*Math.cos(5*ang + s.p3);
+      return c.r * Math.max(0.68, Math.min(1.40, f));
+    }
+    /* Normalized distance to the irregular boundary (1.0 = at the edge,
+       following the perturbed outline / lobe bulges, not a circle). */
+    function normDist(c, dx, dy){
+      var d = Math.sqrt(dx*dx + dy*dy);
+      var nd = d / shapeR(c, Math.atan2(dx, dy));
+      for(var i=0;i<c.lobes.length;i++){
+        var L = c.lobes[i];
+        var lx = dx - Math.sin(L.ang)*L.off*c.r, ly = dy - Math.cos(L.ang)*L.off*c.r;
+        var lnd = Math.sqrt(lx*lx + ly*ly) / (L.rad * c.r) * 1.12;
+        if(lnd < nd) nd = lnd;
+      }
+      return nd;
+    }
+    /* Reflectivity vs normalized radius, shaped by peak intensity.
+       Intense cells (peak >= ~50 dBZ) hold red out to ~78% of radius,
+       then cross THIN yellow and green rims. Weak/moderate cells fall
+       off gradually through broad yellow and green bands. */
+    function profZ(pk, nd){
+      var pts = [[0, pk]], hot = pk >= 50, nd40 = 0, nd30 = 0;
+      if(pk > 40){ nd40 = Math.min(0.78, 0.34 + (pk - 40)*0.044); pts.push([nd40, 40]); }
+      if(pk > 30){
+        nd30 = pk > 40 ? nd40 + (hot ? 0.13 : 0.28) : Math.min(0.88, 0.42 + (pk - 30)*0.02);
+        pts.push([nd30, 30]);
+      }
+      var base = pk > 30 ? nd30 : 0.30 + Math.max(0, pk - 20)*0.035;
+      var nd20 = Math.min(1.12, base + (hot ? 0.10 : 0.30));
+      pts.push([nd20, 20]);
+      for(var i=1;i<pts.length;i++){
+        if(nd <= pts[i][0]){
+          var a = pts[i-1], b = pts[i];
+          return a[1] + (b[1] - a[1]) * (nd - a[0]) / (b[0] - a[0]);
+        }
+      }
+      return 20 - 30*(nd - nd20);
+    }
+    var SCEN = [
+      { name:'1 · Isolated Thunderstorm',
+        fl:12000, alt:35000, speed:240, range:80, tilt:2, gain:0,
+        cells:[ C(2,55,7,37000,3000,48,0.8,26,{name:'Mature CB'}),
+                C(3,74,5,19000,4000,27,0.2,3,{name:'Weak shower'}) ],
+        brief:'<b>One mature cumulonimbus</b>, top 37,000 ft, red core, about 55 NM ahead on your track. A weaker shower sits beyond it at ~74 NM. Classic single-cell tilt practice.',
+        trap:'SETUP TRAP: at FL350 with +2° tilt your beam passes clean over the storm. Watch the SIDE view — then fix the tilt.',
+        challenge:'Using the SIDE view, set the tilt so the beam center passes through the storm\'s peak-reflectivity level (near the freezing level, 12,000 ft) at the cell\'s range. Then check. BONUS OBSERVATION: let the sim run for a minute and watch the cell\'s ANVIL develop — a light-green plume spreading DOWNWIND from the storm top, in the same direction the cell itself is drifting (see the steering wind in the Scenario panel). Tilt UP toward the storm top to paint it; it is only ~20–28 dBZ, so it vanishes first if you reduce gain.',
+        check:function(){ var b=beamInfo(refCell()); if(!b) return no('No reference cell.');
+          var ok = Math.abs(b.beamAlt - b.peakAlt) < 3500 && S.mode!=='OFF' && S.mode!=='STBY';
+          return ok ? yes('Beam center at '+fmt(b.beamAlt)+' ft vs peak level '+fmt(b.peakAlt)+' ft — that is how you paint the core, not the overshoot.')
+                    : no('Beam center is at '+fmt(b.beamAlt)+' ft at the cell; the peak level is '+fmt(b.peakAlt)+' ft. '+(b.beamAlt>b.peakAlt?'You are overshooting — tilt DOWN.':'You are undershooting — tilt UP.')); } },
+      { name:'2 · Squall Line',
+        fl:11500, alt:35000, speed:250, range:160, tilt:-1, gain:0,
+        cells:[ C(-62,62,10,40000,2500,49,0.7,30,{name:'Line cell W'}),
+                C(-40,60,11,42000,2500,52,0.8,34,{name:'Line cell'}),
+                C(-18,58,10,39000,2500,47,0.7,26,{name:'Line cell'}),
+                C(6,60,9,36000,2500,34,0.4,10,{name:'The "gap"'}),
+                C(30,62,11,43000,2500,51,0.8,32,{name:'Line cell'}),
+                C(55,64,10,41000,2500,50,0.75,30,{name:'Line cell E'}),
+                C(14,102,9,37000,3000,45,0.7,22,{name:'Cell behind the line'}) ],
+        brief:'<b>A squall line</b> ~60 NM ahead with one weaker segment. Behind the line, 100 NM out, sits another strong cell. Heavy rain in the line absorbs radar energy — what happens to the cell behind it?',
+        trap:'',
+        challenge:'The weak segment looks like a way through, and the area behind the line looks empty. Turn ON "Show Truth" with PAC enabled and compare what is really there with what the radar paints. Then check.',
+        check:function(){ if(!S.pac) return no('PAC is off — turn the PAC switch on first so the alert can be generated.');
+          if(!S.truth) return no('Now enable SHOW TRUTH (ghost outlines) and look at the strong cell sitting in the radar shadow behind the line.');
+          return yes('Correct — the "empty" area behind the line is a radar shadow. The cell there is real (ghost outline) but attenuated to green/invisible. A PAC arc marks the azimuths where the radar can no longer be trusted. Never thread a gap you cannot see behind.'); } },
+      { name:'3 · Supercell',
+        fl:12500, alt:35000, speed:240, range:80, tilt:0, gain:0,
+        cells:[ C(-5,46,10,45000,2500,57,1.0,60,{name:'Supercell core'}),
+                C(7,38,5,30000,3000,45,0.85,30,{name:'Hook appendage'}),
+                C(-6,58,17,29000,19000,30,0.3,14,{name:'Anvil shield', strat:true}) ],
+        brief:'<b>A supercell</b>: &gt;55 dBZ core to 45,000 ft, a hook appendage, extreme turbulence and near-continuous lightning — including strikes in the anvil, where reflectivity is low.',
+        trap:'',
+        challenge:'Get the turbulence picture: select WX+T, close to within 40 NM of the supercell (keep flying or pause and check your range), then check. Note what happens to the speckle beyond 40 NM.',
+        check:function(){ var c=refCell(); if(!c) return no('No reference cell.');
+          if(S.mode!=='WXT') return no('You are in '+S.mode+'. Turbulence needs WX+T (or the TURB switch).');
+          if(c.dist>42) return no('You are '+Math.round(c.dist)+' NM from the core. Doppler turbulence is only measured inside ~40 NM — beyond that, no speckle does NOT mean smooth air.');
+          return yes('Turbulence painting inside 40 NM: solid magenta in WX would mean >50 dBZ; in WX+T the speckled magenta is turbulence. Same color, two meanings — a classic misread.'); } },
+      { name:'4 · Embedded CBs in Stratiform',
+        fl:11000, alt:35000, speed:240, range:160, tilt:-2.5, gain:0,
+        cells:[ C(-6,74,58,20500,2500,28,0.12,1,{name:'Stratiform shield', strat:true}),
+                C(38,96,44,19500,2500,26,0.10,1,{name:'Stratiform shield', strat:true}),
+                C(-32,56,4,19000,2500,35,0.15,0,{name:'Rain pocket', strat:true, noRef:true}),
+                C(-18,82,3,19000,2500,33,0.15,0,{name:'Rain pocket', strat:true, noRef:true}),
+                C(2,50,4.5,19000,2500,36,0.15,0,{name:'Rain pocket', strat:true, noRef:true}),
+                C(10,72,3,19000,2500,34,0.15,0,{name:'Rain pocket', strat:true, noRef:true}),
+                C(-42,80,5,19000,2500,37,0.15,0,{name:'Rain pocket', strat:true, noRef:true}),
+                C(18,58,2.6,19000,2500,33,0.15,0,{name:'Rain pocket', strat:true, noRef:true}),
+                C(30,76,4,19000,2500,35,0.15,0,{name:'Rain pocket', strat:true, noRef:true}),
+                C(-8,94,3.2,19000,2500,34,0.15,0,{name:'Rain pocket', strat:true, noRef:true}),
+                C(36,94,4.5,19000,2500,36,0.15,0,{name:'Rain pocket', strat:true, noRef:true}),
+                C(-28,100,3,19000,2500,33,0.15,0,{name:'Rain pocket', strat:true, noRef:true}),
+                C(8,106,4,19000,2500,35,0.15,0,{name:'Rain pocket', strat:true, noRef:true}),
+                C(24,112,3.4,19000,2500,34,0.15,0,{name:'Rain pocket', strat:true, noRef:true}),
+                C(-14,64,6.5,36000,3000,48,0.8,18,{name:'Embedded CB 1'}),
+                C(20,90,5.5,38000,3000,50,0.85,22,{name:'Embedded CB 2'}) ],
+        brief:'<b>A wide stratiform rain shield</b> — large swaths of light green with scattered small yellow pockets of light-to-moderate rain — and two cumulonimbi buried inside it, topping 36,000–38,000 ft. At CAL gain and the preset cruise tilt (−2.5°) the CBs barely stand out from the clutter around them: just slightly stronger hints in a sea of green and yellow.',
+        trap:'THE TRAP: everything reads as "just rain." The embedded cores are only a shade stronger than the yellow rain pockets scattered around them — very easy to fly into while watching the wrong patch of color.',
+        challenge:'Make the embedded CBs stand out — two techniques: (1) TILT UP so the beam samples above the stratiform tops (~20,000 ft) at the CBs\' range: the shield drops out of the beam, the tall CBs remain. (2) REDUCE GAIN until the light shield washes out first — the much stronger CB cores survive. Try either (or both), then check.',
+        check:function(){ var cb = scen.cells[scen.cells.length-1]; var g = cellGeom(cb); if(!g) return no('No reference cell.');
+          var bAlt = beamAltAt(g.dist, effTilt(), S.alt);
+          if(S.gain <= -5) return yes('GAIN-DOWN works: at '+sgn(S.gain)+' dB the 26–37 dBZ shield and its pockets fall to (and below) the paint threshold, while the 48–50 dBZ CB cores still paint solid red. The storms were always there — the light rain was hiding them. Deviate, then ease gain back toward CAL.');
+          if(bAlt > 22500) return yes('TILT-UP works: beam center is at '+fmt(bAlt)+' ft at the far CB ('+Math.round(g.dist)+' NM) — above the stratiform tops (~20,000 ft). The shield has dropped out of the beam while the CBs, topping 36–38,000 ft, still fill it. That is how you interrogate embedded convection.');
+          return no('Neither technique yet. Beam center at the far CB ('+Math.round(g.dist)+' NM) is '+fmt(bAlt)+' ft and gain is '+sgn(S.gain)+' dB. Tilt UP until the beam center there is above ~22,500 ft, or back the gain down to −5 dB or beyond — and watch the CBs separate from the shield.'); } },
+      { name:'5 · Microburst / Windshear on Approach',
+        fl:9000, alt:1500, speed:140, range:20, tilt:3, gain:0,
+        cells:[ C(1.5,7,6.5,38000,0,54,0.9,30,{name:'Microburst parent CB', lowCore:true}),
+                C(-16,14,7,15000,2000,26,0.2,2,{name:'Light rain', strat:true}),
+                C(18,20,8,16000,2000,28,0.2,2,{name:'Light rain', strat:true}) ],
+        burst:{dx:0.5, dy:4.2, str:1},
+        brief:'<b>On final approach</b> at 1,500 ft, 140 kt. About 4 NM ahead, a microburst sits on the approach path at the foot of a <b>mature, heavy thunderstorm</b>: a 54 dBZ core (red with a magenta center) topping ~38,000 ft, with a solid heavy rain shaft reaching the ground — at your altitude the beam samples its low levels and it still paints red. This is a <b>WET microburst</b>: the burst hides under an obvious, violent storm. PWS is your warning — if it is on, and you are inside its envelope. <b>Then toggle DRY MICROBURST</b>: the SAME burst under a weak, virga-like echo of ~24 dBZ — same shear, almost no storm to look at. That contrast is the lesson: reflectivity alone cannot be trusted for windshear.',
+        trap:'',
+        challenge:'Fly the approach with PWS on and get the predictive windshear alert. Then check. (If nothing happens, ask yourself: are you below 2,300 ft and within ~5 NM? Is PWS actually on?)',
+        check:function(){ if(!S.pws) return no('PWS is OFF. The radar gives you no windshear protection at all — that is the lesson airlines drill: check the switch before descent.');
+          if(flags.wsAlert) return yes('PWS alert received: red/black windshear icon on the ND and PWS ALERT in the Instructor panel. Correct action is immediate: GO AROUND — full thrust, pitch to the escape guidance, do not change configuration until clear.');
+          return no('No alert yet. Keep flying the approach (Play, 1,500 ft). The alert triggers inside ~5 NM of the burst, below ~2,300 ft AGL.'); } },
+      { name:'6 · Tropical / Hurricane Bands',
+        fl:16000, alt:33000, speed:230, range:160, tilt:-0.5, gain:0,
+        cells:[ C(-45,55,13,38000,2000,46,0.6,22,{name:'Rainband'}),
+                C(-15,48,12,40000,2000,49,0.65,26,{name:'Rainband'}),
+                C(18,52,13,41000,2000,48,0.6,24,{name:'Rainband'}),
+                C(48,60,12,39000,2000,45,0.55,18,{name:'Rainband'}),
+                C(-30,105,14,42000,2000,50,0.7,30,{name:'Inner band'}),
+                C(8,112,13,43000,2000,51,0.7,32,{name:'Inner band'}),
+                C(45,118,12,40000,2000,47,0.6,24,{name:'Inner band'}),
+                C(10,165,16,44000,2000,52,0.75,36,{name:'Eyewall segment'}) ],
+        brief:'<b>Spiral rainbands</b> of a tropical system. Band after band of heavy rain: attenuation stacks up fast and a PAC alert is almost guaranteed. The "clear slot" between bands may not be clear at all.',
+        trap:'',
+        challenge:'Fly toward the inner bands until a PAC ALERT appears on the display (yellow arc at the outer edge). Make sure the PAC switch is on. Then check.',
+        check:function(){ if(!S.pac) return no('PAC switch is off — no arc can be drawn. Turn it on.');
+          if(flags.pacSeen) return yes('PAC ALERT active: cumulative attenuation on those azimuths has eaten the radar\'s margin. Everything beyond the arc is suspect — in the tropics, plan deviations early and wide, and use the SIDE view + tilt to sanity-check band tops.');
+          return no('No PAC alert yet. Keep flying toward the inner bands (or select range 160 and let the sweep work). Attenuation through successive heavy bands is what triggers it.'); } },
+      { name:'7 · Frontal Stratiform Rain',
+        fl:8000, alt:25000, speed:260, range:160, tilt:0, gain:7,
+        cells:[ C(-20,70,42,14000,1000,30,0.1,0,{name:'Frontal rain', strat:true}),
+                C(35,95,38,12500,1000,27,0.08,0,{name:'Frontal rain', strat:true}),
+                C(-5,140,50,13500,1500,28,0.1,0,{name:'Frontal rain', strat:true}) ],
+        brief:'<b>A warm-front rain shield</b>: broad light-to-moderate rain, tops near 14,000 ft, no convection at all. The hazard here is not the weather — it is over-reading it.',
+        trap:'SETUP TRAP: gain is cranked to +7 dB. The strongest core in this front is 30 dBZ, so +7 dB lifts it to 37 dBZ displayed — greens inflate to yellow (nothing here can reach red, which would take 40 dBZ) and noise speckle appears — a benign front dressed up as a storm.',
+        challenge:'Restore gain discipline: return the gain to CAL and verify (with tilt or the SIDE view) that the tops are low and there is no convective core. Then check.',
+        check:function(){ if(Math.abs(S.gain)>0.5) return no('Gain is still '+sgn(S.gain)+' dB. Every color on the display is lying by that amount. Back to CAL.');
+          return yes('At CAL the front is honest: its peak is 30 dBZ — green, with the strongest center just touching the yellow threshold — tops ~14,000 ft, no red, no turbulence, no lightning. (At the preset +7 dB that same peak displayed 37 dBZ: yellow, but still short of red.) Not every colored return is a thunderstorm — gain discipline keeps you from deviating around weather that is not there.'); } },
+      { name:'8 · Winter Precip / Low Reflectivity',
+        fl:3000, alt:12000, speed:210, range:80, tilt:-1, gain:0,
+        cells:[ C(-8,48,20,9000,500,21,0.2,0,{name:'Snow band', strat:true}),
+                C(22,78,24,9500,500,23,0.25,0,{name:'Snow band', strat:true}),
+                C(-30,95,22,8500,500,19,0.15,0,{name:'Snow band', strat:true}) ],
+        brief:'<b>A winter snow system.</b> Snowflakes are poor radar targets: a genuinely hazardous band (airframe icing in the cloud layer) may paint only faint green — or nothing at all at CAL gain.',
+        trap:'',
+        challenge:'The display looks almost empty at CAL. Bring the snow bands into view with manual gain (+5 dB or more) — then check. (And note what that same gain would do to a summer CB.)',
+        check:function(){ if(S.gain>=5) return yes('With +'+S.gain.toFixed(0)+' dB the snow bands paint. Remember the trade: this gain would saturate a real thunderstorm into solid magenta. Use it to interrogate, then return to CAL. Radar also cannot see clear-air icing or small-droplet icing at all — a blank scope is not a clearance.');
+          return no('Gain is '+sgn(S.gain)+' dB. Snow returns sit near 20 dBZ — push gain to at least +5 and watch the bands emerge from the noise floor.'); } },
+      { name:'9 · Building Storms — Developing CBs', building:true,
+        fl:13000, alt:35000, speed:260, range:80, tilt:-2, gain:0,
+        cells:[ C(4,58,7,26000,3000,34,0.35,4,{name:'Main builder', grow:{topRate:40, topMax:43000, peakMax:55}}),
+                C(-24,44,6,24000,3000,30,0.25,2,{name:'Young cell W', grow:{topRate:20, topMax:31500, peakMax:40}}),
+                C(26,80,8,27500,3000,36,0.40,6,{name:'Builder E', grow:{topRate:26, topMax:38500, peakMax:48}}),
+                C(-8,95,5,22000,3500,26,0.15,1,{name:'Weak tower', grow:{topRate:14, topMax:25000, peakMax:31}}) ],
+        brief:'<b>Developing convection ahead, growing in real time.</b> Four young towers are building while you watch — the main cell\'s top is climbing at roughly 2,400 ft per minute at first, easing off as it matures (watch the SIDE view). At load it tops at 26,000 ft with a modest 34 dBZ core: safely below your FL350, easy to top. It will not stay that way — left alone it reaches your altitude in roughly 4–6 minutes of sim time, then keeps building to ~43,000 ft over about 10 minutes, ending with a red core, heavy turbulence and frequent lightning. The other towers grow slower (about 50–65% and ~35% of the main cell\'s rate) and stall at different tops.',
+        trap:'THE TRAP: "we can top it" was true when you first saw it. A building cell can out-climb your decision loop — by the time you arrive, its top may be above you.',
+        challenge:'Top the cell early or deviate — decide before it reaches your altitude. Either pass within ~12 NM of the main builder while it is still well below you, or deviate at least 20° around it. Then check. WATCH THE ANVIL: a young tower has NO anvil — one only starts spreading downwind once the top passes ~30,000 ft and nears maturity, then extends downwind (the direction the cell is drifting) as it matures. Anvil appearing = the cell is becoming a mature thunderstorm.',
+        check:function(){ var m = scen.cells[0];
+          if(flags.toppedEarly) return yes('You topped the main builder while it was still well below your altitude — the right call, made early. In a real build-up, that window closes fast: the same cell is now far more dangerous than the one you flew over.');
+          var dev = ((S.heading % 360) + 360) % 360; if(dev > 180) dev = 360 - dev;
+          if(dev >= 20) return yes('You deviated around the build-up with time to spare. With a cell climbing ~2,400 ft per minute, early and wide beats late and tight — by the time it matures it will be above your altitude with a red core.');
+          if(m.top >= S.alt) return no('Too late — the main builder is now at '+fmt(m.top)+' ft, at/above your altitude, peaking '+Math.round(m.peak)+' dBZ. It was below you and safe to top at load; it is not anymore. Deviate now — do not try to top it.');
+          var avgR = (growRate(m) + m.grow.topRate*30) / 2;
+          var t = Math.round((S.alt - m.top) / Math.max(1, avgR) * 10) / 10;
+          return no('Still pointed at it. The main cell tops '+fmt(m.top)+' ft and is climbing at ~'+Math.round(growRate(m)).toLocaleString('en-US')+' ft/min — it reaches your altitude in about '+t+' min of sim time. Top it NOW (pass within ~12 NM while it is still below you) or deviate at least 20°.'); } }
+    ];
+    function yes(m){ return {ok:true, msg:m}; }
+    function no(m){ return {ok:false, msg:m}; }
+    function sgn(v){ return (v>0?'+':'') + (Math.round(v*10)/10); }
+    function fmt(n){ return Math.round(n).toLocaleString('en-US'); }
+    /* Instructor tilt suggestion, clamped to the tilt control's ±15°
+       range: an ideal beyond the cap is reported AS the cap and
+       flagged as the control limit — never as an unreachable value. */
+    function tiltHint(needDeg){
+      if(needDeg > 15) return '+15° (control limit — core is above the beam\'s reach at this range)';
+      if(needDeg < -15) return '−15° (control limit — core is below the beam\'s reach at this range)';
+      return sgn(needDeg) + '°';
+    }
+
+    /* ---------------- storm motion (random steering wind) ----------------
+       On every scenario load a steering wind is randomized (direction
+       full 360°, scenario-appropriate speed band). Every precipitating
+       cell drifts with it — system cells share the wind with only a
+       small per-cell jitter so lines/bands move together without being
+       a rigid stencil. Motion is a function of simTime, so PAUSE
+       freezes it and reload re-randomizes it. Exception: the
+       microburst approach shower is anchored over its ground point —
+       a burst is short-lived and stays over its parent shower. */
+    var COMPASS16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    function compass(deg){ return COMPASS16[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16]; }
+    function cellPos(c){
+      var dt = scen && scen._t0 != null ? simTime - scen._t0 : 0;
+      return { x: c.dx + (c.mvx || 0) * dt, y: c.dy + (c.mvy || 0) * dt };
+    }
+    /* ---------------- anvils ----------------
+       A convective cell grows a thin anvil shield at its top over
+       ~45–90 s of sim time, extending DOWNWIND — the direction the
+       storm is moving (upper wind aligned with storm motion). Fully
+       developed it reaches ~1.0–1.8× the core radius beyond the core
+       edge, wide in the middle, narrower at the core and the tip,
+       with a ragged noise-perturbed edge. Reflectivity is LOW:
+       ~20–28 dBZ ice crystals, green only, no embedded core. */
+    function anvilReach(c){ return c.r * (c.anvilMax || 1.3) * (c.anvilFrac || 0); } // NM beyond core edge
+    function anvilZ(c, dx, dy, alt){
+      if(!c || c.strat || (c.anvilFrac || 0) < 0.05) return -999;
+      if(alt < c.top - 4200 || alt > c.top + 900) return -999;         // thin band at the storm top
+      var ux = c.anvilUx || 0, uy = c.anvilUy || 1;
+      var s = dx*ux + dy*uy;                                          // along-wind distance from core center
+      var lat = -uy*dx + ux*dy;                                       // cross-wind distance
+      var reach = anvilReach(c), L = c.r + reach;
+      if(s < -c.r*0.35 || s > L) return -999;
+      var prog = Math.max(0, Math.min(1, (s + c.r*0.35) / (L + c.r*0.35)));
+      var w = c.r * (0.28 + 0.95*Math.sin(Math.PI * (0.12 + 0.80*prog)));
+      w *= 1 + 0.16*Math.sin(7*prog + c.tph) + 0.10*Math.sin(13*prog + c.phase); // ragged edge
+      if(Math.abs(lat) > w) return -999;
+      var ndA = Math.abs(lat) / w;
+      var z = 27.5 - 7*prog - 3*ndA*ndA;                              // ~27 dBZ near core → ~20 at the tip
+      if(alt > c.top - 600) z -= (alt - (c.top - 600)) * 0.0012;      // fade through the top of the shield
+      if(alt < c.top - 2600) z -= ((c.top - 2600) - alt) * 0.0012;
+      return z;
+    }
+    function updateAnvils(dtSim){
+      if(!scen) return;
+      for(var i=0;i<scen.cells.length;i++){
+        var c = scen.cells[i];
+        if(c.strat || c.peak0 < 30) continue;
+        if(scen.building){
+          // young towers have NO anvil: it only starts once the top
+          // nears maturity (~30,000 ft or within 5,000 ft of its cap)
+          var cap = c.grow ? c.grow.topMax : c.top;
+          if(c.top < 30000 && c.top < cap - 5000) continue;
+        }
+        if((c.anvilFrac || 0) < 1) c.anvilFrac = Math.min(1, (c.anvilFrac || 0) + dtSim / (c.anvilGrowSecs || 70));
+      }
+    }
+
+    /* ---------------- weather field sampling ---------------- */
+    function sampleAll(x, y, alt){
+      // returns {z: dBZ, turb: weighted turb of dominant cell, cell}
+      var best = -999, bc = null, bt = 0;
+      for(var i=0;i<scen.cells.length;i++){
+        var c = scen.cells[i], p = cellPos(c);
+        var dx = x-p.x, dy = y-p.y, d = Math.sqrt(dx*dx + dy*dy);
+        if(d > c.r*3.4) continue;                                     // covers core + full downwind anvil
+        // --- anvil contribution (independent of the core footprint) ---
+        var az = anvilZ(c, dx, dy, alt);
+        if(az > best){ best = az; bc = c; bt = c.turb * 0.45; }       // anvil carries some turbulence risk
+        // --- core contribution ---
+        var nd = normDist(c, dx, dy);                                 // distance to irregular boundary
+        if(nd > 1.32) continue;
+        var ang = Math.atan2(dx, dy);
+        // lumpy, domed top: highest near the core, uneven by azimuth
+        var effTop = c.top * (1 - 0.16*Math.min(1, nd)) * (0.90 + 0.10*Math.sin(3*ang + c.tph));
+        if(alt < c.base-800 || alt > effTop+800) continue;
+        var pk = c.peak + 2.2*Math.sin(simTime*0.03 + c.phase);      // slow pulse
+        var z = profZ(pk, nd);                                        // intensity-shaped contour widths
+        var zPk = Math.min(Math.max(scen.fl+1500, c.base+800), effTop); // brightest near melting level
+        if(alt > zPk) z -= (alt-zPk)*0.0011;                          // falloff above peak level
+        else z -= (zPk-alt)*(c.lowCore ? 0.00012 : 0.00055);          // lowCore cells (microburst parent): a heavy rain shaft — reflectivity stays strong all the way down to the surface instead of fading below the melting level
+        if(alt > effTop) z -= (alt-effTop)*0.004;                     // soft top edge
+        if(alt < c.base) z -= (c.base-alt)*(c.lowCore ? 0.0006 : 0.004);
+        if(c.strat && Math.abs(alt-scen.fl) < 1300) z += 4;           // bright band
+        if(z > best){ best = z; bc = c; bt = c.turb; }
+      }
+      return { z:best, turb:bt, cell:bc };
+    }
+    /* Ground-return strength (dBZ-like) from beam geometry: only the
+       lower edge grazing = weak/fuzzy; beam center driven below ground
+       = progressively stronger, up to solid-red territory. */
+    /* ---- seeded terrain variation for ground clutter ----
+       Stable per scenario load (reseeded in loadScenario, like storm
+       shapes): multi-scale value noise over world NM coordinates, so
+       the patch pattern is fixed in space and does NOT crawl or
+       shimmer between sweeps — only the speckle flickers. Gives
+       roughly ±12 dBZ of patch-to-patch variation plus a separate
+       coverage variation: rough / city-like patches paint stronger
+       and denser, water / flat-like patches weaker and sparser. */
+    var terrainSeed = 1234567;
+    function hash2(ix, iy){
+      var n = (ix*374761393 + iy*668265263 + terrainSeed*974634211) | 0;
+      n = Math.imul(n ^ (n >>> 13), 1274126177);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    }
+    function valueNoise(x, y){
+      var ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+      var sx = fx*fx*(3-2*fx), sy = fy*fy*(3-2*fy);
+      var a = hash2(ix, iy), b = hash2(ix+1, iy), c = hash2(ix, iy+1), d = hash2(ix+1, iy+1);
+      return a + (b-a)*sx + (c-a)*sy + (a-b-c+d)*sx*sy;   // 0..1
+    }
+    function terrainDB(x, y){ // ±~12 dBZ around the tilt-driven mean
+      var n = valueNoise(x/22, y/22)*0.50 + valueNoise(x/7.5, y/7.5)*0.34 + valueNoise(x/2.6, y/2.6)*0.16;
+      return (n - 0.5) * 2 * 12;
+    }
+    function terrainCover(x, y){ // 0.45..1.15 multiplier on speckle coverage
+      return 0.45 + 0.70 * valueNoise(x/13 + 40, y/13 - 25);
+    }
+    /* Deterministic per-position dither (stable, no shimmer) used to
+       ragged the weather-return edges: ±~1.2 dBZ. */
+    function edgeDither(a, r){
+      var n = Math.sin(a*127.1 + r*311.7) * 43758.5453;
+      return ((n - Math.floor(n)) - 0.5) * 2.4;
+    }
+    /* Feathered alpha near the 20 dBZ paint threshold and near color
+       boundaries, so contour transitions are soft (~2–4 dBZ wide)
+       instead of hard steps. Returns {col, alpha, over, overAlpha}
+       where 'over' is the next band up, blended in near a boundary. */
+    function smoothPaint(disp){
+      var alpha = Math.max(0.12, Math.min(1, (disp - 18.5) / 3.5));
+      var over = null, overAlpha = 0;
+      var thrs = [30, 40, 50];
+      for(var i=0;i<thrs.length;i++){
+        if(Math.abs(disp - thrs[i]) < 2){
+          over = colorFor(thrs[i] + 1);
+          overAlpha = Math.max(0, Math.min(0.65, (disp - (thrs[i]-2)) / 4)) * alpha;
+          break;
+        }
+      }
+      return { col: colorFor(disp), alpha: alpha, over: over, overAlpha: overAlpha };
+    }
+    function groundZ(bc, half){
+      if(bc >= 0){ var frac = Math.max(0, Math.min(1, (half - bc)/(2*half))); return 13 + frac*15; }
+      return 27 + Math.min(22, (-bc)/600);
+    }
+    function attRate(zDbz){ // two-way attenuation, dB per NM, X-band-ish
+      // Specific attenuation rises STEEPLY with reflectivity (roughly
+      // proportional to rain rate): ~0.03 dB/NM at 30 dBZ (negligible),
+      // ~0.26 at 40, ~0.8 at 45, ~1.6 at 48, ~2.6 at 50, ~4.8 at 52,
+      // ~8 at 55 dBZ. Accrued incrementally along each radial (see
+      // paintRadial), a >=50 dBZ core therefore eats its own far side
+      // (lens shape) and blacks out everything behind it, while a
+      // <40 dBZ cell accumulates only ~1–3 dB across its whole depth
+      // and keeps essentially its true shape.
+      if(zDbz < 10) return 0;
+      return 2.6e-5 * Math.pow(10, zDbz/10);
+    }
+    /* ---------------- beam geometry ---------------- */
+    function beamAltAt(R, tiltDeg, acAlt){
+      return acAlt + FT*R*Math.tan((tiltDeg||0)*DEG) + 0.662*R*R;   // 4/3-earth curvature
+    }
+    function beamHalfFt(R){ return FT*R*Math.tan(1.75*DEG); }        // 3.5° beamwidth
+    function effTilt(){
+      if(S.autoTilt){
+        var R = S.range*0.5, target = scen ? scen.fl : 12000;
+        return Math.atan((target - S.alt - 0.662*R*R)/(FT*R))/DEG;
+      }
+      return S.tilt;
+    }
+    function refCell(){
+      // nearest cell ahead within display sector & range (or the selected one)
+      if(S.selected){ var s = cellGeom(S.selected); if(s) return s; }
+      var best=null;
+      for(var i=0;i<scen.cells.length;i++){
+        if(scen.cells[i].noRef) continue;
+        var g = cellGeom(scen.cells[i]);
+        if(g && Math.abs(g.brg) <= 62 && g.dist <= S.range*1.05 && (!best || g.dist < best.dist)) best = g;
+      }
+      return best;
+    }
+    function cellGeom(c){
+      var p = cellPos(c);
+      var dx = p.x - S.acX, dy = p.y - S.acY;
+      var dist = Math.hypot(dx,dy);
+      var brg = Math.atan2(dx,dy)/DEG - S.heading;
+      while(brg>180) brg-=360; while(brg<-180) brg+=360;
+      return { cell:c, dist:dist, brg:brg, x:p.x, y:p.y };
+    }
+    function beamInfo(g){
+      if(!g) return null;
+      var t = effTilt();
+      var c = g.cell;
+      return { dist:g.dist,
+        beamAlt: beamAltAt(g.dist, t, S.alt),
+        peakAlt: Math.min(Math.max(scen.fl+1500, c.base+800), c.top),
+        top:c.top, base:c.base,
+        beamAltAt:function(R){ return beamAltAt(R, t, S.alt); } };
+    }
+    /* ================= TOP (PLAN) VIEW ================= */
+    var topC = document.getElementById('topC'), tctx = topC.getContext('2d');
+    var paintC = document.createElement('canvas'); paintC.width = 740; paintC.height = 700;
+    var pctx = paintC.getContext('2d');
+    var TCX = 370, TCY = 652, TRAD = 418;
+    S.pacAz = {};
+    S.shadowAz = {};   // azimuths where weather attenuation has blacked out the ground return entirely
+    function topScale(){ return TRAD / S.range; }
+    function colorFor(d){ return d<30 ? '#22d84f' : d<40 ? '#ffd21f' : d<50 ? '#ff2a1e' : '#ff2fd6'; }
+    function radarActive(){ return S.mode==='WX' || S.mode==='WXT' || S.mode==='MAP'; }
+
+    function paintRadial(a){
+      var t = effTilt(), sc = topScale();
+      var absB = (S.heading + a)*DEG, dirx = Math.sin(absB), diry = Math.cos(absB);
+      /* Fine range steps (128 across the display range) so attenuation
+         can accrue INCREMENTALLY as the beam penetrates precipitation:
+         at every step the displayed dBZ is the true dBZ at that step
+         MINUS the cumulative two-way attenuation accrued up to that
+         step, and only then does this step's own rain add its share.
+         Through a strong core the far side is therefore progressively
+         eaten away — most on the center azimuth (longest path through
+         the core), least on the edge azimuths — and the displayed cell
+         collapses into a LENS / crescent shape, pointed or flattened
+         on the far side, instead of merely casting a shadow behind
+         itself. Weak cells accrue almost nothing and keep their shape. */
+      var NSTEP = 192, dr = S.range/NSTEP, cumAtt = 0, cumAttCol = 0, pacHit = false, sawWx = false;
+      for(var i=0;i<NSTEP;i++){
+        var r = (i+0.5)*dr;
+        var bc = beamAltAt(r, t, S.alt), half = beamHalfFt(r);
+        var rs = r*sc, a0 = (a-1.1-90)*DEG, a1 = (a+1.1-90)*DEG;
+        var wx = S.acX + dirx*r, wy = S.acY + diry*r;
+        var inGnd = (bc - half <= 0);
+        /* Weather is sampled and attenuation accrued at EVERY step —
+           including steps where the beam is in the ground. (Letting
+           the ground branch pre-empt sampling was the old bug: once
+           the beam buried, the storm beyond it never attenuated
+           anything and ground painted straight through the shadow.) */
+        var s1 = sampleAll(wx, wy, bc),
+            s2 = sampleAll(wx, wy, bc - half*0.55),
+            s3 = sampleAll(wx, wy, bc + half*0.55);
+        var s = s1; if(s2.z > s.z) s = s2; if(s3.z > s.z) s = s3;
+        /* Above-ground beam fraction, computed INDEPENDENTLY of the
+           ground return below: the strongest weather sample whose
+           altitude is still above the surface. When the lower beam
+           edge has reached the ground, the upper beam can still
+           intersect weather — and that weather must still paint.
+           (Beam/ground decoupling: ground return comes only from the
+           beam fraction below terrain; weather in the fraction above
+           terrain paints with normal attenuation.) */
+        var upZ = -999, upTurb = 0;
+        if(bc >= 0 && s1.z > upZ){ upZ = s1.z; upTurb = s1.turb; }
+        if(bc - half*0.55 >= 0 && s2.z > upZ){ upZ = s2.z; upTurb = s2.turb; }
+        if(bc + half*0.55 >= 0 && s3.z > upZ){ upZ = s3.z; upTurb = s3.turb; }
+        var upDisp = upZ > -100 ? upZ - cumAtt + S.gain + edgeDither(a, r) : -999;
+        var disp = -999;
+        if(s.z > -100){
+          disp = s.z - cumAtt + S.gain + edgeDither(a, r);  // display-only edge dither (physics below uses the un-dithered field)
+          cumAtt += attRate(s.z)*dr;                 // this step's rain attenuates everything behind it
+          if(s.z >= 20) sawWx = true;
+          if(cumAtt > 9) pacHit = true;
+        }
+        if(inGnd){
+          /* ---- GROUND RETURN ----
+             Fuzzy green speckle where the beam only grazes the surface;
+             coverage and strength grow as the beam center is driven
+             below ground level, through yellow to solid red at steep
+             down-tilt. The ground return is reduced by the FULL
+             cumulative attenuation through all weather in front of the
+             ground point on this radial — the beam-path integral above
+             PLUS a weather-column integral (cumAttCol) sampled at the
+             peak-reflectivity level, because once the beam has buried
+             its energy still had to cross the whole weather column
+             over the surface to produce a return at this range. Both
+             the displayed ground dBZ and its speckle coverage/solidity
+             fall with that total: solid -> patchy/fuzzy -> sparse
+             speckle -> BLACK. Behind a strong core the shadow wedge is
+             clean black, spanning the storm's angular width from its
+             far side to the display edge, while radials a few degrees
+             off the storm still paint solid ground to the edge. GCS
+             only ever subtracts — it can never resurrect shadowed
+             ground. */
+          var cz = sampleAll(wx, wy, scen.fl + 1500).z;
+          // Slant factor 2.8: the ground return's energy crosses the
+          // full precipitating column on a slant, out and back, so the
+          // column integral (peak-level reflectivity over the whole
+          // chord) is weighted up vs the beam-path integral — this is
+          // what makes the shadow behind a strong core go fully black
+          // rather than merely dimmer, for any cell shape.
+          if(cz > -100){ cumAttCol += attRate(cz)*dr*2.8; if(cz >= 20) sawWx = true; }
+          if(cumAtt + cumAttCol > 9) pacHit = true;
+          var totalAttG = cumAtt + cumAttCol;
+          var gdisp = groundZ(bc, half) - totalAttG + S.gain + terrainDB(wx, wy);
+          if(S.mode === 'MAP') gdisp += 7;   // MAP: ground mapping is the primary picture — broader, stronger ground sensitivity
+          if(S.gcs && S.mode !== 'MAP' && bc > -600) gdisp -= 10;   // GCS eats the grazing fuzz first
+          var cover = Math.max(0, Math.min(1, (gdisp - 13)/18)) * terrainCover(wx, wy);
+          if(S.mode === 'MAP') cover = Math.min(1, cover * 1.4 + 0.12);   // MAP paints terrain fuller and more solidly
+          if(totalAttG > 25) cover = 0;   // deep attenuation shadow stays completely black — terrain never paints inside it
+          if(sawWx && gdisp < 15 && (cumAtt + cumAttCol) >= 12) S.shadowAz[a] = true;   // ground fully blacked out by weather attenuation on this radial
+          if(gdisp >= 15 && totalAttG <= 25 && Math.random() < cover){
+            var gsp = smoothPaint(Math.min(49, gdisp));
+            var gcol = gsp.col;
+            if(cover < 0.55){                                     // fuzzy: speckle, not a solid arc
+              pctx.fillStyle = gcol;
+              for(var gk=0;gk<3;gk++){
+                var ga2 = (a + (Math.random()*2.2-1.1))*DEG, gr2 = (r + (Math.random()-0.5)*dr)*sc;
+                pctx.fillRect(TCX + Math.sin(ga2)*gr2 - 1.4, TCY - Math.cos(ga2)*gr2 - 1.4, 2.8, 2.8);
+              }
+            } else {
+              pctx.save(); pctx.globalAlpha = Math.max(0.35, gsp.alpha);
+              pctx.strokeStyle = gcol;
+              pctx.lineWidth = dr*sc*(cover > 0.85 ? 1.3 : 1.15);
+              pctx.beginPath(); pctx.arc(TCX, TCY, rs, a0, a1); pctx.stroke();
+              if(gsp.over && gsp.overAlpha > 0.03){ pctx.globalAlpha = gsp.overAlpha; pctx.strokeStyle = gsp.over; pctx.stroke(); }
+              pctx.restore();
+            }
+          }
+          /* ---- WEATHER IN THE ABOVE-GROUND BEAM FRACTION ----
+             Decoupled from the ground return just painted: the lower
+             beam edge is in the terrain at this range, but the beam
+             fraction still above ground can intersect weather, and
+             that weather paints here with its normal attenuation.
+             Only when the WHOLE beam is below ground (bc + half <= 0)
+             is there no airborne beam left to paint weather with —
+             a fully buried beam paints ground only, as before. */
+          if(bc + half > 0 && upZ > -100 && upDisp >= 19){
+            if(S.mode === 'MAP'){
+              pctx.save(); pctx.globalAlpha = 0.30; pctx.strokeStyle = '#7d9b8f';
+              pctx.lineWidth = dr*sc*1.35;
+              pctx.beginPath(); pctx.arc(TCX, TCY, rs, a0, a1); pctx.stroke(); pctx.restore();
+            } else {
+              var wsp2 = smoothPaint(upDisp);
+              pctx.save(); pctx.globalAlpha = wsp2.alpha;
+              pctx.strokeStyle = wsp2.col;
+              pctx.lineWidth = dr*sc*1.35;
+              pctx.beginPath(); pctx.arc(TCX, TCY, rs, a0, a1); pctx.stroke();
+              if(wsp2.over && wsp2.overAlpha > 0.03){ pctx.globalAlpha = wsp2.overAlpha; pctx.strokeStyle = wsp2.over; pctx.stroke(); }
+              pctx.restore();
+              if(S.mode==='WXT' && r <= 40 && upZ > 20 && upTurb > 0.5){
+                pctx.fillStyle = '#ff2fd6';
+                for(var k2=0;k2<4;k2++){
+                  var aa2 = (a + (Math.random()*2.2-1.1))*DEG, rr2 = (r + (Math.random()-0.5)*dr)*sc;
+                  pctx.fillRect(TCX + Math.sin(aa2)*rr2 - 1.6, TCY - Math.cos(aa2)*rr2 - 1.6, 3.2, 3.2);
+                }
+              }
+            }
+          }
+          continue;
+        }
+        /* ---- weather return (beam airborne at this step) ----
+           Painted at disp computed above: true dBZ at this step minus
+           the attenuation accrued up to it, plus gain. On the near side
+           of a strong core cumAtt is still small and the core paints
+           full red/magenta; deeper in, cumAtt grows step by step and
+           the far-side contours collapse toward the near side — the
+           lens shape. */
+        if(s.z > -100 && disp >= 19){
+          var wsp = smoothPaint(disp);
+          pctx.save(); pctx.globalAlpha = S.mode === 'MAP' ? wsp.alpha * 0.32 : wsp.alpha;
+          pctx.strokeStyle = S.mode === 'MAP' ? '#7d9b8f' : wsp.col;   // MAP: weather is a dimmed, desaturated single-tone underlay — ground mapping is the picture
+          pctx.lineWidth = dr*sc*1.35;
+          pctx.beginPath(); pctx.arc(TCX, TCY, rs, a0, a1); pctx.stroke();
+          if(S.mode !== 'MAP' && wsp.over && wsp.overAlpha > 0.03){ pctx.globalAlpha = wsp.overAlpha; pctx.strokeStyle = wsp.over; pctx.stroke(); }
+          pctx.restore();
+          if(S.mode==='WXT' && r <= 40 && s.z > 20 && s.turb > 0.5){
+            pctx.fillStyle = '#ff2fd6';
+            for(var k=0;k<4;k++){
+              var aa = (a + (Math.random()*2.2-1.1))*DEG, rr = (r + (Math.random()-0.5)*dr)*sc;
+              pctx.fillRect(TCX + Math.sin(aa)*rr - 1.6, TCY - Math.cos(aa)*rr - 1.6, 3.2, 3.2);
+            }
+          }
+        }
+      }
+      if(S.gain >= 5){                                     // receiver noise at high gain
+        pctx.fillStyle = 'rgba(34,216,79,0.4)';
+        for(var j=0;j<(S.gain-4)*1.5;j++){
+          var nr = Math.random()*S.range*topScale(), na = (a + (Math.random()*2-1))*DEG;
+          pctx.fillRect(TCX + Math.sin(na)*nr - 1, TCY - Math.cos(na)*nr - 1, 2, 2);
+        }
+      }
+      S.pacAz[a] = !!(S.pac && pacHit && S.mode !== 'MAP');   // PAC is a weather-avoidance alert — inactive in MAP (ground mapping)
+      if(S.pac && pacHit && S.mode !== 'MAP') flags.pacSeen = true;
+    }
+    function fullRepaint(){
+      pctx.fillStyle = '#000'; pctx.fillRect(0,0,740,700);
+      S.pacAz = {}; S.shadowAz = {};
+      if(!radarActive()) return;
+      for(var a=-60; a<=60; a+=2) paintRadial(a);
+    }
+    function relScreen(brgDeg, distNM){
+      var sc = topScale();
+      return { x: TCX + Math.sin(brgDeg*DEG)*distNM*sc, y: TCY - Math.cos(brgDeg*DEG)*distNM*sc };
+    }
+    var sweepAng = -60, sweepDir = 1;
+    function drawTop(){
+      tctx.fillStyle = '#000'; tctx.fillRect(0,0,740,700);
+      if(fxPhase() === 'jumble'){ drawJumble(tctx, 740, 700); return; }
+      if(fxPhase() === 'reset'){ drawResetMsg(tctx, 740, 700); return; }
+      if(S.mode === 'OFF'){
+        tctx.fillStyle = 'rgba(120,140,155,0.5)'; tctx.font = '20px "Share Tech Mono",monospace';
+        tctx.textAlign = 'center'; tctx.fillText('WXR OFF', TCX, 330); return;
+      }
+      if(S.mode === 'STBY'){
+        tctx.fillStyle = 'rgba(255,176,46,0.65)'; tctx.font = '20px "Share Tech Mono",monospace';
+        tctx.textAlign = 'center'; tctx.fillText('WXR STBY — NO DISPLAY', TCX, 330);
+        tctx.font = '13px "Share Tech Mono",monospace'; tctx.fillStyle = 'rgba(255,176,46,0.4)';
+        tctx.fillText('A standby radar paints nothing. Weather is still out there.', TCX, 358); return;
+      }
+      // Smoothed composite: a lightly blurred copy of the paint layer
+      // softens the polar-grid stair-steps into radar-like edges, and
+      // the sharper original is laid back over it at partial alpha so
+      // peak cores keep their full color (red stays red).
+      tctx.save(); tctx.filter = 'blur(1.5px)'; tctx.globalAlpha = 0.9;
+      tctx.drawImage(paintC, 0, 0); tctx.restore();
+      tctx.save(); tctx.globalAlpha = 0.55; tctx.drawImage(paintC, 0, 0); tctx.restore();
+      // truth ghosts
+      if(S.truth){
+        tctx.save(); tctx.setLineDash([6,5]); tctx.font = '12px "Share Tech Mono",monospace';
+        for(var i=0;i<scen.cells.length;i++){
+          var g = cellGeom(scen.cells[i]);
+          if(Math.abs(g.brg) > 63 || g.dist > S.range*1.02) continue;
+          var cc = scen.cells[i];
+          var p = relScreen(g.brg, g.dist), rr = Math.max(6, cc.r*topScale());
+          tctx.strokeStyle = 'rgba(255,255,255,0.8)'; tctx.lineWidth = 1.4;
+          tctx.beginPath();                                   // irregular truth outline
+          for(var oa=0; oa<=360; oa+=12){
+            var oAng = oa*DEG, oRad = shapeR(cc, oAng);
+            var owx = g.x + Math.sin(oAng)*oRad, owy = g.y + Math.cos(oAng)*oRad;
+            var odx = owx - S.acX, ody = owy - S.acY;
+            var opp = relScreen(Math.atan2(odx, ody)/DEG - S.heading, Math.hypot(odx, ody));
+            if(oa === 0) tctx.moveTo(opp.x, opp.y); else tctx.lineTo(opp.x, opp.y);
+          }
+          tctx.closePath(); tctx.stroke();
+          // anvil outline (truth): ragged teardrop plume extending downwind
+          if(!cc.strat && (cc.anvilFrac || 0) > 0.05){
+            var ux2 = cc.anvilUx || 0, uy2 = cc.anvilUy || 1, px2 = -uy2, py2 = ux2;
+            var L2 = cc.r + anvilReach(cc), pts = [], NST = 12, si, pr2, ss, ww;
+            for(si = 0; si <= NST; si++){ pr2 = si / NST; ss = -cc.r*0.35 + pr2 * (L2 + cc.r*0.35);
+              ww = cc.r * (0.28 + 0.95*Math.sin(Math.PI * (0.12 + 0.80*pr2))) * (1 + 0.13*Math.sin(7*pr2 + cc.tph));
+              pts.push([g.x + ux2*ss + px2*ww, g.y + uy2*ss + py2*ww]); }
+            for(si = NST; si >= 0; si--){ pr2 = si / NST; ss = -cc.r*0.35 + pr2 * (L2 + cc.r*0.35);
+              ww = cc.r * (0.28 + 0.95*Math.sin(Math.PI * (0.12 + 0.80*pr2))) * (1 + 0.13*Math.sin(7*pr2 + cc.tph));
+              pts.push([g.x + ux2*ss - px2*ww, g.y + uy2*ss - py2*ww]); }
+            tctx.strokeStyle = 'rgba(120,255,170,0.75)'; tctx.lineWidth = 1.1;
+            tctx.beginPath();
+            pts.forEach(function(wp, wi){
+              var wdx = wp[0] - S.acX, wdy = wp[1] - S.acY;
+              var wpp = relScreen(Math.atan2(wdx, wdy)/DEG - S.heading, Math.hypot(wdx, wdy));
+              if(wi === 0) tctx.moveTo(wpp.x, wpp.y); else tctx.lineTo(wpp.x, wpp.y);
+            });
+            tctx.closePath(); tctx.stroke();
+            tctx.strokeStyle = 'rgba(255,255,255,0.8)'; tctx.lineWidth = 1.4;
+          }
+          // motion vector arrow (truth): where this cell will be in 10 min
+          if(cc.motionSpd > 1){
+            var ex = g.x + (cc.mvx || 0) * 600, ey = g.y + (cc.mvy || 0) * 600;
+            var edx = ex - S.acX, edy = ey - S.acY;
+            var ep = relScreen(Math.atan2(edx, edy)/DEG - S.heading, Math.hypot(edx, edy));
+            tctx.save(); tctx.setLineDash([]);
+            tctx.strokeStyle = '#ffd21f'; tctx.fillStyle = '#ffd21f'; tctx.lineWidth = 1.8;
+            tctx.beginPath(); tctx.moveTo(p.x, p.y); tctx.lineTo(ep.x, ep.y); tctx.stroke();
+            var ha = Math.atan2(ep.y - p.y, ep.x - p.x);
+            tctx.beginPath();
+            tctx.moveTo(ep.x, ep.y);
+            tctx.lineTo(ep.x - 8*Math.cos(ha - 0.45), ep.y - 8*Math.sin(ha - 0.45));
+            tctx.lineTo(ep.x - 8*Math.cos(ha + 0.45), ep.y - 8*Math.sin(ha + 0.45));
+            tctx.closePath(); tctx.fill();
+            tctx.font = '11px "Share Tech Mono",monospace'; tctx.textAlign = 'center';
+            tctx.fillText(Math.round(cc.motionSpd) + ' kt', (p.x + ep.x)/2, (p.y + ep.y)/2 - 5);
+            tctx.restore(); tctx.setLineDash([6,5]);
+          }
+          if(!cc.noRef){
+            tctx.fillStyle = 'rgba(255,255,255,0.9)'; tctx.textAlign = 'center';
+            tctx.fillText(cc.name, p.x, p.y - rr - 14);
+            tctx.fillText('TOP ' + Math.round(cc.top/100)/10 + 'k · ' + Math.round(cc.peak) + ' dBZ', p.x, p.y - rr - 2);
+          }
+          if(S.selected === scen.cells[i]){ tctx.strokeStyle = '#37e2ee'; tctx.setLineDash([]);
+            tctx.beginPath(); tctx.arc(p.x, p.y, rr + 5, 0, 6.29); tctx.stroke(); tctx.setLineDash([6,5]); }
+        }
+        tctx.restore();
+      }
+      // lightning strikes
+      if(S.ltg){
+        for(var j=0;j<strikes.length;j++){
+          var st = strikes[j], age = simTime - st.t0, al = Math.max(0, 1 - age/26);
+          if(al <= 0) continue;
+          var dx = st.x - S.acX, dy = st.y - S.acY, dist = Math.hypot(dx,dy);
+          var brg = Math.atan2(dx,dy)/DEG - S.heading;
+          if(Math.abs(brg) > 62 || dist > S.range) continue;
+          var sp = relScreen(brg, dist);
+          tctx.save(); tctx.globalAlpha = 0.35 + 0.65*al;
+          tctx.fillStyle = age < 3 ? '#fff6c8' : '#ffe94a';
+          tctx.beginPath();
+          tctx.moveTo(sp.x+2.5, sp.y-8); tctx.lineTo(sp.x-3.5, sp.y+1); tctx.lineTo(sp.x-0.2, sp.y+1);
+          tctx.lineTo(sp.x-2.5, sp.y+8); tctx.lineTo(sp.x+3.5, sp.y-1.5); tctx.lineTo(sp.x+0.2, sp.y-1.5);
+          tctx.closePath(); tctx.fill(); tctx.restore();
+        }
+      }
+      // windshear icon
+      if(wsState === 'ahead' || wsState === 'in'){
+        var bg = burstGeom(), bp = relScreen(bg.brg, bg.dist);
+        tctx.save();
+        tctx.fillStyle = '#000'; tctx.strokeStyle = '#ff2a1e'; tctx.lineWidth = 2;
+        tctx.fillRect(bp.x-15, bp.y-15, 30, 30); tctx.strokeRect(bp.x-15, bp.y-15, 30, 30);
+        tctx.fillStyle = '#ff2a1e';
+        for(var q=-1;q<=1;q++){
+          tctx.beginPath();
+          tctx.moveTo(bp.x + q*9 - 4, bp.y - 6); tctx.lineTo(bp.x + q*9 + 4, bp.y - 6); tctx.lineTo(bp.x + q*9, bp.y + 3);
+          tctx.closePath(); tctx.fill();
+        }
+        tctx.font = 'bold 10px "Share Tech Mono",monospace'; tctx.textAlign = 'center';
+        tctx.fillText('WS', bp.x, bp.y + 13); tctx.restore();
+      }
+      // range rings + sector lines
+      tctx.save();
+      tctx.strokeStyle = 'rgba(55,226,238,0.30)'; tctx.lineWidth = 1;
+      [0.25, 0.5, 0.75, 1].forEach(function(f){
+        tctx.beginPath(); tctx.arc(TCX, TCY, TRAD*f, (-60-90)*DEG, (60-90)*DEG); tctx.stroke();
+      });
+      [-60,-30,0,30,60].forEach(function(a){
+        var p1 = relScreen(a, 0), p2 = relScreen(a, S.range);
+        tctx.strokeStyle = 'rgba(55,226,238,0.16)';
+        tctx.beginPath(); tctx.moveTo(p1.x, p1.y); tctx.lineTo(p2.x, p2.y); tctx.stroke();
+      });
+      tctx.fillStyle = 'rgba(55,226,238,0.85)'; tctx.font = '12px "Share Tech Mono",monospace';
+      [0.25, 0.5, 0.75, 1].forEach(function(f){
+        var p = relScreen(52, S.range*f);
+        tctx.textAlign = 'left'; tctx.fillText(String(Math.round(S.range*f)), p.x + 4, p.y);
+      });
+      tctx.textAlign = 'center';
+      [[-60,'60'],[-30,'30'],[0,''],[30,'30'],[60,'60']].forEach(function(pr){
+        if(!pr[1]) return; var p = relScreen(pr[0], S.range);
+        tctx.fillText(pr[1], p.x, p.y - 8);
+      });
+      // PAC alert arc
+      var anyPac = false;
+      tctx.strokeStyle = '#ffd21f'; tctx.lineWidth = 9; tctx.setLineDash([8,6]);
+      for(var key in S.pacAz){ if(S.pacAz[key]){ anyPac = true;
+        var aa = parseFloat(key);
+        tctx.beginPath(); tctx.arc(TCX, TCY, TRAD - 7, (aa-1.05-90)*DEG, (aa+1.05-90)*DEG); tctx.stroke();
+      }}
+      tctx.setLineDash([]);
+      // sweep
+      var s0 = relScreen(sweepAng, 0), s1 = relScreen(sweepAng, S.range);
+      var grad = tctx.createLinearGradient(s0.x, s0.y, s1.x, s1.y);
+      grad.addColorStop(0, 'rgba(55,226,238,0.75)'); grad.addColorStop(1, 'rgba(55,226,238,0.05)');
+      tctx.strokeStyle = grad; tctx.lineWidth = 2;
+      tctx.beginPath(); tctx.moveTo(s0.x, s0.y); tctx.lineTo(s1.x, s1.y); tctx.stroke();
+      // aircraft symbol
+      tctx.strokeStyle = '#37e2ee'; tctx.lineWidth = 2.4;
+      tctx.beginPath();
+      tctx.moveTo(TCX, TCY - 13); tctx.lineTo(TCX, TCY + 7);
+      tctx.moveTo(TCX - 12, TCY + 1); tctx.lineTo(TCX + 12, TCY + 1);
+      tctx.moveTo(TCX - 6, TCY + 10); tctx.lineTo(TCX + 6, TCY + 10);
+      tctx.stroke();
+      // corner annunciations (RDR-4000 style)
+      tctx.textAlign = 'left'; tctx.font = '17px "Share Tech Mono",monospace';
+      tctx.fillStyle = '#2fe07a';
+      tctx.fillText(S.mode === 'WXT' ? 'WX+T' : S.mode, 16, 60);
+      tctx.font = '14px "Share Tech Mono",monospace'; tctx.fillStyle = '#37e2ee';
+      tctx.fillText('TILT ' + (S.autoTilt ? 'AUTO ' : '') + sgn(effTilt()) + '°', 16, 82);
+      tctx.fillStyle = S.gain === 0 ? '#37e2ee' : '#ffb02e';
+      tctx.fillText('GAIN ' + (S.gain === 0 ? 'CAL' : sgn(S.gain) + ' dB'), 16, 102);
+      tctx.textAlign = 'right'; tctx.fillStyle = '#37e2ee'; tctx.font = '15px "Share Tech Mono",monospace';
+      tctx.fillText('RNG ' + S.range, 724, 30);
+      if(S.pws){ tctx.fillStyle = '#2fe07a'; tctx.fillText('PWS', 724, 52); }
+      tctx.textAlign = 'left'; tctx.fillStyle = '#37e2ee';
+      tctx.fillText('HDG ' + ('00' + ((S.heading%360+360)%360)).slice(-3) + '°', 16, 688);
+      if(anyPac && S.pac){
+        tctx.textAlign = 'center'; tctx.fillStyle = '#ffd21f'; tctx.font = 'bold 17px "Share Tech Mono",monospace';
+        tctx.fillText('PAC ALERT', TCX, 30);
+      }
+      tctx.restore();
+    }
+
+    /* ================= SIDE (VERTICAL PROFILE) VIEW ================= */
+    var sideC = document.getElementById('sideC'), sctx = sideC.getContext('2d');
+    var SX0 = 66, SX1 = 922, SYT = 24, SYB = 484;
+    function xPix(R){ return SX0 + (R / S.range) * (SX1 - SX0); }
+    function yPix(alt){ return SYB - (alt / 50000) * (SYB - SYT); }
+    function drawSide(){
+      sctx.fillStyle = '#000'; sctx.fillRect(0,0,940,540);
+      if(fxPhase() === 'jumble'){ drawJumble(sctx, 940, 540); return; }
+      if(fxPhase() === 'reset'){ drawResetMsg(sctx, 940, 540); return; }
+      sctx.font = '11.5px "Share Tech Mono",monospace';
+      // grid
+      for(var ga=0; ga<=50000; ga+=10000){
+        sctx.strokeStyle = 'rgba(55,226,238,0.14)';
+        sctx.beginPath(); sctx.moveTo(SX0, yPix(ga)); sctx.lineTo(SX1, yPix(ga)); sctx.stroke();
+        sctx.fillStyle = 'rgba(143,165,184,0.9)'; sctx.textAlign = 'right';
+        sctx.fillText(ga === 0 ? 'GND' : (ga/1000) + 'k', SX0 - 7, yPix(ga) + 4);
+      }
+      for(var gr=0; gr<=4; gr++){
+        var R = S.range * gr/4;
+        sctx.strokeStyle = 'rgba(55,226,238,0.10)';
+        sctx.beginPath(); sctx.moveTo(xPix(R), SYT); sctx.lineTo(xPix(R), SYB); sctx.stroke();
+        sctx.fillStyle = 'rgba(143,165,184,0.9)'; sctx.textAlign = 'center';
+        sctx.fillText(Math.round(R) + ' NM', xPix(R), SYB + 18);
+      }
+      sctx.fillStyle = '#0b0d10'; sctx.fillRect(SX0, SYB, SX1 - SX0, 540 - SYB);
+      if(S.mode === 'OFF' || S.mode === 'STBY'){
+        sctx.fillStyle = 'rgba(255,176,46,0.6)'; sctx.font = '18px "Share Tech Mono",monospace';
+        sctx.textAlign = 'center';
+        sctx.fillText(S.mode === 'OFF' ? 'WXR OFF' : 'WXR STBY — beam profile not available', 494, 260);
+        drawSideFrame(); return;
+      }
+      var hdgR = S.heading * DEG, dirx = Math.sin(hdgR), diry = Math.cos(hdgR);
+      var t = effTilt();
+      // --- unified profile raster ---
+      // ONE sampling path for the whole profile: every (range, altitude)
+      // pixel samples the true reflectivity field at that exact point.
+      // A pixel inside the beam wedge paints bright at its displayed
+      // dBZ (field value − path attenuation + gain); a pixel outside
+      // paints as the faint truth ghost. Same pixel grid, same field
+      // value, same rect on both sides of the beam edge — so the
+      // in-beam section IS the storm's actual cross-section (same
+      // silhouette, same contour shapes, continuous across the beam
+      // boundary), never a beam-shaped block re-projected from a few
+      // beam-center samples stretched over the beam's full width.
+      var tops = [], maxTop = 0;
+      var NC = 120, colW = (SX1 - SX0) / NC, drS = S.range / NC;
+      var ALTSTEP = 900, rowH = (ALTSTEP / 50000) * (SYB - SYT);
+      // cumulative two-way attenuation along the profile radial,
+      // sampled on the beam axis exactly as the plan view does
+      var cumAttAt = [], cumAtt = 0, groundFrom = -1, groundCol = [];
+      for(var m=0; m<NC; m++){
+        var Rr = (m + 0.5) * drS, bcA = beamAltAt(Rr, t, S.alt), halfA = beamHalfFt(Rr);
+        cumAttAt.push(cumAtt);
+        var wxa = S.acX + dirx*Rr, wya = S.acY + diry*Rr;
+        var isGndCol = (bcA - halfA <= 0);
+        if(isGndCol){ groundCol.push(true); if(groundFrom < 0) groundFrom = Rr; }
+        else groundCol.push(false);
+        // Attenuation accrues incrementally at EVERY column — including
+        // ground columns (same fix as the plan view: a ground column
+        // must not stop the integral, or the storm beyond the ground
+        // intercept would cast no shadow in the profile either).
+        var q1 = sampleAll(wxa, wya, bcA), q2 = sampleAll(wxa, wya, bcA - halfA*0.55), q3 = sampleAll(wxa, wya, bcA + halfA*0.55);
+        var qz = Math.max(q1.z, q2.z, q3.z);
+        if(qz > -100) cumAtt += attRate(qz) * drS;
+        if(isGndCol){
+          // weather-column integral at the peak-reflectivity level,
+          // matching the plan view's ground-shadow attenuation
+          // (same 2.8 slant factor)
+          var cq = sampleAll(wxa, wya, scen.fl + 1500);
+          if(cq.z > -100) cumAtt += attRate(cq.z) * drS * 2.8;
+        }
+      }
+      for(var i=0;i<NC;i++){
+        var Rc = (i + 0.5) / NC * S.range;
+        var wx = S.acX + dirx*Rc, wy = S.acY + diry*Rc, colTop = -1;
+        var bc = beamAltAt(Rc, t, S.alt), half = beamHalfFt(Rc);
+        var x0 = xPix(Rc) - colW/2;
+        for(var alt=ALTSTEP/2; alt<=50000; alt+=ALTSTEP){
+          var s = sampleAll(wx, wy, alt);
+          if(s.z < 18) continue;
+          // beam coverage of THIS pixel from beam geometry at its range,
+          // computed INDEPENDENTLY of the ground return (beam/ground
+          // decoupling, same rule as the plan view): a pixel inside the
+          // beam wedge and above the surface paints as weather even in
+          // a column whose lower beam edge has reached the ground —
+          // groundCol only drives the ground strip below, never gates
+          // weather. Where the whole wedge is underground no pixel
+          // above the surface is inside it, so a fully buried beam
+          // still paints no weather, exactly as before.
+          var inBeam = Math.abs(alt - bc) <= half;
+          var disp = s.z - cumAttAt[i] + S.gain;
+          if(inBeam && disp >= 19){
+            var ssp = smoothPaint(disp + edgeDither(Rc*3.1, alt*0.01));
+            sctx.fillStyle = S.mode === 'MAP' ? '#7d9b8f' : ssp.col; sctx.globalAlpha = S.mode === 'MAP' ? 0.30 : 0.95 * ssp.alpha;   // MAP: weather dimmed to a single-tone underlay
+            sctx.fillRect(x0 - 0.6, yPix(alt + ALTSTEP/2) - 0.6, colW + 1.2, rowH + 1.2);
+            if(S.mode !== 'MAP' && ssp.over && ssp.overAlpha > 0.03){ sctx.fillStyle = ssp.over; sctx.globalAlpha = ssp.overAlpha; sctx.fillRect(x0 - 0.6, yPix(alt + ALTSTEP/2) - 0.6, colW + 1.2, rowH + 1.2); }
+            sctx.globalAlpha = 1;
+            if(S.mode==='WXT' && Rc <= 40 && s.z > 20 && s.turb > 0.5){
+              sctx.fillStyle = '#ff2fd6';
+              for(var d5=0;d5<2;d5++) sctx.fillRect(x0 + Math.random()*colW, yPix(alt) + (Math.random()-0.5)*rowH, 2.6, 2.6);
+            }
+          } else {
+            sctx.fillStyle = colorFor(s.z); sctx.globalAlpha = 0.30;
+            sctx.fillRect(x0 - 0.6, yPix(alt + ALTSTEP/2) - 0.6, colW + 1.2, rowH + 1.2);
+            sctx.globalAlpha = 1;
+          }
+          if(s.z >= 20 && alt + ALTSTEP/2 > colTop) colTop = alt + ALTSTEP/2;
+        }
+        // clamp the reported top to the true top of any cell this column passes through
+        // (shape-aware footprint incl. lobes, plus anvil coverage — the raster's soft
+        // top edge otherwise reads up to ~800 ft above the cell's actual top)
+        var cellTopCap = -1;
+        for(var ci=0; ci<scen.cells.length; ci++){
+          var cc2 = scen.cells[ci], cp = cellPos(cc2);
+          var cdx = wx - cp.x, cdy = wy - cp.y;
+          var covers = normDist(cc2, cdx, cdy) <= 1.35 || anvilZ(cc2, cdx, cdy, cc2.top - 1000) > -100;
+          if(covers && cc2.top > cellTopCap) cellTopCap = cc2.top;
+        }
+        if(cellTopCap > 0 && colTop > cellTopCap) colTop = cellTopCap;
+        tops.push(colTop);
+        if(colTop > maxTop) maxTop = colTop;
+      }
+      // storm top line
+      sctx.strokeStyle = 'rgba(255,255,255,0.75)'; sctx.lineWidth = 1.4; sctx.beginPath();
+      var started = false;
+      for(var j=0;j<NC;j++){
+        if(tops[j] < 0){ started = false; continue; }
+        var px = xPix((j + 0.5)/NC * S.range), py = yPix(tops[j]);
+        if(!started){ sctx.moveTo(px, py); started = true; } else sctx.lineTo(px, py);
+      }
+      sctx.stroke();
+      if(maxTop > 0){
+        sctx.fillStyle = 'rgba(255,255,255,0.9)'; sctx.textAlign = 'left'; sctx.font = '12.5px "Share Tech Mono",monospace';
+        sctx.fillText('ECHO TOPS (≥20 dBZ) ≈ ' + fmt(maxTop) + ' FT', SX0 + 8, yPix(maxTop) - 8 > SYT + 12 ? yPix(maxTop) - 8 : SYT + 14);
+      }
+      // --- beam wedge ---
+      function edgeAlt(R, angDeg){ return S.alt + FT*R*Math.tan(angDeg*DEG) + 0.662*R*R; }
+      sctx.beginPath();
+      var NS = 40;
+      for(var k=0;k<=NS;k++){ var Rb = k/NS * S.range; var yu = yPix(Math.min(56000, edgeAlt(Rb, t + 1.75)));
+        if(k===0) sctx.moveTo(xPix(0), yu); else sctx.lineTo(xPix(Rb), yu); }
+      for(var k2=NS;k2>=0;k2--){ var Rb2 = k2/NS * S.range; sctx.lineTo(xPix(Rb2), yPix(Math.max(-6000, edgeAlt(Rb2, t - 1.75)))); }
+      sctx.closePath();
+      sctx.fillStyle = 'rgba(55,226,238,0.08)'; sctx.fill();
+      sctx.strokeStyle = 'rgba(55,226,238,0.4)'; sctx.lineWidth = 1; sctx.stroke();
+      sctx.setLineDash([5,5]); sctx.strokeStyle = 'rgba(55,226,238,0.65)';
+      sctx.beginPath();
+      for(var k3=0;k3<=NS;k3++){ var Rb3 = k3/NS * S.range; var yc = yPix(Math.min(56000, beamAltAt(Rb3, t, S.alt)));
+        if(k3===0) sctx.moveTo(xPix(0), yc); else sctx.lineTo(xPix(Rb3), yc); }
+      sctx.stroke(); sctx.setLineDash([]);
+      // --- ground return strip ---
+      // Same ground model as the plan view: fuzzy green grazing ->
+      // solid red steep, attenuated by the weather in front of it
+      // (cumAttAt from the unified raster's beam-axis pass above).
+      for(var gm=0; gm<NC; gm++){
+        if(!groundCol[gm]) continue;
+        var Rg2 = (gm + 0.5) * drS, bcg = beamAltAt(Rg2, t, S.alt), halfg = beamHalfFt(Rg2);
+        var wxg = S.acX + dirx*Rg2, wyg = S.acY + diry*Rg2;
+        var gdisp2 = groundZ(bcg, halfg) - cumAttAt[gm] + S.gain + terrainDB(wxg, wyg);
+        if(S.mode === 'MAP') gdisp2 += 7;   // MAP: ground mapping is the primary picture (matches the plan view)
+        if(S.gcs && S.mode !== 'MAP' && bcg > -600) gdisp2 -= 10;
+        var cover2 = Math.max(0, Math.min(1, (gdisp2 - 13)/18)) * terrainCover(wxg, wyg);
+        if(S.mode === 'MAP') cover2 = Math.min(1, cover2 * 1.4 + 0.12);
+        if(cumAttAt[gm] > 25) cover2 = 0;   // shadow stays black in the profile too
+        if(gdisp2 >= 15 && cumAttAt[gm] <= 25 && Math.random() < cover2){
+          sctx.fillStyle = colorFor(Math.min(49, gdisp2));
+          sctx.globalAlpha = 0.3 + 0.7*cover2;
+          sctx.fillRect(xPix(Rg2) - colW/2, SYB - 7, colW, 7);
+          sctx.globalAlpha = 1;
+        }
+      }
+      if(groundFrom > 0){
+        sctx.fillStyle = '#2fe07a'; sctx.textAlign = 'left'; sctx.font = '12.5px "Share Tech Mono",monospace';
+        sctx.fillText('▼ BEAM HITS GROUND ≈ ' + Math.round(groundFrom) + ' NM', xPix(Math.min(groundFrom, S.range*0.97)) - 40, SYB - 14);
+      }
+      drawSideFrame();
+    }
+    function drawSideFrame(){
+      // freezing level + aircraft
+      sctx.setLineDash([7,5]); sctx.strokeStyle = 'rgba(55,226,238,0.5)'; sctx.lineWidth = 1;
+      sctx.beginPath(); sctx.moveTo(SX0, yPix(scen.fl)); sctx.lineTo(SX1, yPix(scen.fl)); sctx.stroke();
+      sctx.strokeStyle = 'rgba(215,227,238,0.28)';
+      sctx.beginPath(); sctx.moveTo(SX0, yPix(S.alt)); sctx.lineTo(SX1, yPix(S.alt)); sctx.stroke();
+      sctx.setLineDash([]);
+      sctx.fillStyle = '#37e2ee'; sctx.textAlign = 'left'; sctx.font = '12px "Share Tech Mono",monospace';
+      sctx.fillText('FREEZING LEVEL ' + fmt(scen.fl) + ' FT', SX1 - 208, yPix(scen.fl) - 6);
+      // aircraft marker
+      var ay = yPix(S.alt);
+      sctx.fillStyle = '#37e2ee';
+      sctx.beginPath(); sctx.moveTo(SX0 + 2, ay); sctx.lineTo(SX0 - 9, ay - 5); sctx.lineTo(SX0 - 9, ay + 5); sctx.closePath(); sctx.fill();
+      sctx.font = '12.5px "Share Tech Mono",monospace';
+      sctx.fillText('YOU · ' + fmt(S.alt) + ' FT · TILT ' + sgn(effTilt()) + '°', SX0 + 6, ay - 9);
+      sctx.fillStyle = 'rgba(143,165,184,0.85)'; sctx.textAlign = 'right';
+      sctx.fillText('SHADED WEDGE = BEAM (3.5°) · BRIGHT BLOCKS = RETURNS · FAINT = TRUE WEATHER', SX1, SYT + 12);
+    }
+
+    /* ================= LIGHTNING + WINDSHEAR ================= */
+    var wsState = 'none'; // none | ahead | in
+    function burstGeom(){
+      if(!scen.burst) return null;
+      var dx = scen.burst.dx - S.acX, dy = scen.burst.dy - S.acY;
+      var brg = Math.atan2(dx, dy)/DEG - S.heading;
+      while(brg > 180) brg -= 360; while(brg < -180) brg += 360;
+      return { dist: Math.hypot(dx, dy), brg: brg };
+    }
+    /* Current climb rate (ft/min) of a growing cell. grow.topRate is
+       the INITIAL rate in ft/s; the climb tapers to half that as the
+       top nears its cap, so growth is brisk early and eases into
+       maturity. Main builder: 2,400 ft/min early → reaches FL350 in
+       ~4–5 sim-minutes, caps at ~43,000 ft in ~10 sim-minutes.
+       Side towers run at ~65% / ~50% / ~35% of the main rate. */
+    function growRate(c){
+      if(!c.grow) return 0;
+      var prog = Math.max(0, Math.min(1, (c.top - c.top0) / Math.max(1, c.grow.topMax - c.top0)));
+      return c.grow.topRate * (1 - 0.5 * prog) * 60;   // ft/min
+    }
+    /* Developing-cell growth (Building Storms scenario). Runs on sim
+       time only — pausing the flight pauses growth. Tops climb at the
+       tapered growRate(); the core's peak dBZ intensifies with the
+       maturity fraction, and turbulence and lightning ramp with it,
+       all on the same slow timeline. */
+    function updateGrowth(dtSim){
+      if(!scen) return;
+      for(var i=0;i<scen.cells.length;i++){
+        var c = scen.cells[i];
+        if(!c.grow) continue;
+        if(c.top < c.grow.topMax) c.top = Math.min(c.grow.topMax, c.top + growRate(c) / 60 * dtSim);
+        var m = Math.max(0, Math.min(1, (c.top - c.top0)/Math.max(1, c.grow.topMax - c.top0)));
+        c.peak = c.peak0 + (c.grow.peakMax - c.peak0) * m;
+        c.turb = c.turb0 + (0.92 - c.turb0)*m*0.85;
+        c.ltn = c.ltn0 + 30*m;
+      }
+      if(scen.building){
+        var main = scen.cells[0], mg = cellGeom(main);
+        if(mg && mg.dist < 13 && main.top < S.alt - 1500) flags.toppedEarly = true;
+      }
+    }
+    function updateLightning(dtSim){
+      for(var i=0;i<scen.cells.length;i++){
+        var c = scen.cells[i];
+        c._acc = (c._acc || 0) + c.ltn/60 * dtSim;
+        while(c._acc >= 1){
+          c._acc -= 1;
+          var p = cellPos(c), ang = Math.random()*6.283, anvil = Math.random() < 0.3 && (c.anvilFrac || 0) > 0.25;
+          var rr = Math.sqrt(Math.random()) * c.r * (anvil ? 1.1 : 0.9);
+          if(anvil){
+            // anvil strike: inside / downwind of the developed anvil plume
+            var aS = Math.random() * (c.r + anvilReach(c));
+            var aLat = (Math.random()*2 - 1) * c.r * 0.7;
+            strikes.push({ x: p.x + (c.anvilUx || 0) * aS + (-(c.anvilUy || 1)) * aLat,
+                           y: p.y + (c.anvilUy || 1) * aS + (c.anvilUx || 0) * aLat, t0: simTime });
+          } else {
+            strikes.push({ x: p.x + Math.cos(ang)*rr, y: p.y + Math.sin(ang)*rr*0.7, t0: simTime });
+          }
+        }
+      }
+      strikes = strikes.filter(function(s){ return simTime - s.t0 < 26; });
+    }
+    function updateWindshear(){
+      wsState = 'none';
+      if(!scen.burst) return;
+      var g = burstGeom();
+      if(g.dist <= 1.3) wsState = 'in';
+      else if(S.pws && S.alt <= 2300 && g.dist <= 5.5 && Math.abs(g.brg) <= 45) wsState = 'ahead';
+      if(wsState === 'ahead') flags.wsAlert = true;
+    }
+
+    /* Shared DOM helper — defined here, before its first top-level
+       use in the aircraft-effects section below (el('deadRestart')
+       listener registration runs during initial script execution;
+       defining el later in the file left it undefined at that point
+       and aborted the whole script). */
+    var el = function(id){ return document.getElementById(id); };
+
+    /* ================= AIRCRAFT EFFECTS: TURBULENCE / G / LIGHTNING =================
+       The G meter reads the TRUE weather at the aircraft's actual
+       position and altitude (sampleAll at acX/acY/alt) — never what
+       the radar happens to paint. Gust load is a smoothed random
+       walk (Ornstein-Uhlenbeck) plus occasional discrete spikes,
+       both scaled by a turbulence amplitude derived from the field:
+       calm air amp ~0.02 (g stays 1.00 ± ~0.03); proximity to a
+       strong cell gives light-to-moderate chop; inside a severe core
+       (>=~40 dBZ at aircraft altitude with high cell turbulence,
+       amp >= ~1.1) excursions regularly cross the LIMIT lines
+       (+2.5 / -1.0 g) and CAN cross ULTIMATE (+3.75 / -1.5 g) if the
+       aircraft stays in the core for more than a few seconds.
+       Moderate weather (amp <= ~0.45) cannot reach ultimate even
+       with walk + spike aligned — deviating properly never breaks
+       the aircraft; penetrating a supercell core does. */
+    var G_LIMIT_POS = 2.5, G_LIMIT_NEG = -1.0, G_ULT_POS = 3.75, G_ULT_NEG = -1.5;
+    var fx = { g:1, gv:0, spike:0, amp:0.010, cat:'SMOOTH', cell:null,
+               peakPos:1, peakNeg:1, limitLogged:false,
+               dead:false, deadPeak:0,
+               jumbleEnd:0, resetEnd:0, lastStrikeT:-1e9, log:[] };
+    function randn(){
+      var u = 0, v = 0;
+      while(u === 0) u = Math.random();
+      while(v === 0) v = Math.random();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+    function fxPhase(){
+      var now = performance.now();
+      if(now < fx.jumbleEnd) return 'jumble';
+      if(now < fx.resetEnd) return 'reset';
+      return 'none';
+    }
+    function fxRadarDown(){ return fxPhase() !== 'none'; }
+    function logFx(msg){
+      fx.log.push({ t: simTime, msg: msg });
+      var box = el('fxEntries'); if(!box) return;
+      box.innerHTML = fx.log.slice(-9).map(function(e){
+        var mm = String(Math.floor(e.t/60)).padStart(2,'0'), ss = String(Math.floor(e.t % 60)).padStart(2,'0');
+        return '<div class="fxe"><span class="lt">T+' + mm + ':' + ss + '</span>' + e.msg + '</div>';
+      }).join('');
+      var wrap = el('fxLogBox'); if(wrap) wrap.scrollTop = wrap.scrollHeight;
+    }
+    function resetFx(){
+      fx.g = 1; fx.gv = 0; fx.spike = 0; fx.amp = 0.010; fx.cat = 'SMOOTH'; fx.cell = null;
+      fx.peakPos = 1; fx.peakNeg = 1; fx.limitLogged = false;
+      fx.dead = false; fx.deadPeak = 0;
+      fx.jumbleEnd = 0; fx.resetEnd = 0; fx.lastStrikeT = -1e9; fx.log = [];
+      var ov = el('deadOverlay'); if(ov) ov.hidden = true;
+      var fl = el('flashFx'); if(fl) fl.style.opacity = '0';
+      var en = el('fxEntries'); if(en) en.innerHTML = '';
+      logFx('Flight started — G meter live. Calm air reads 1.00 g. Limits +2.5 / −1.0 g · ultimate +3.75 / −1.5 g.');
+      drawGMeter(); updateFxReadouts();
+    }
+    /* Turbulence amplitude + category at the aircraft, from the true
+       field: reflectivity at aircraft altitude, dominant cell's
+       turbulence value, and proximity to strong cells; the
+       microburst feeds through its existing reactive state. */
+    function turbAtAircraft(){
+      var amp = 0.010, cell = null;
+      var s = sampleAll(S.acX, S.acY, S.alt);
+      if(s.z > -100 && s.cell){
+        var sev = Math.max(0, Math.min(1, (s.z - 8) / 22)) * (0.25 + 0.75 * (s.turb || 0));
+        // Steep severity curve (sev^2.6): moderate weather (sev <= ~0.55,
+        // e.g. a 34 dBZ cell) stays at amp <= ~0.45 and CANNOT reach
+        // ultimate load even with walk + spike aligned, exactly as the
+        // effects comment above specifies; only genuinely severe cores
+        // (sev >= ~0.78, >=40 dBZ with high turbulence) reach amp >= ~1.
+        var a2 = 0.05 + Math.pow(sev, 2.6) * 1.9;
+        if(a2 > amp){ amp = a2; cell = s.cell; }
+      }
+      // proximity chop: within ~5 NM of a strong cell's edge, at an
+      // altitude inside its column — light-to-moderate, never severe
+      for(var i=0;i<scen.cells.length;i++){
+        var c = scen.cells[i];
+        if(c.strat || c.peak < 42 || c.turb < 0.55) continue;
+        var g = cellGeom(c), edge = g.dist - c.r;
+        if(edge > -1 && edge < 5 && S.alt > c.base - 2500 && S.alt < c.top + 2500){
+          var pa = 0.10 + 0.36 * (1 - Math.max(0, edge) / 5) * c.turb;
+          if(pa > amp){ amp = pa; cell = c; }
+        }
+      }
+      if(wsState === 'in') amp = Math.max(amp, 1.55);        // in the burst: severe excursions
+      else if(wsState === 'ahead') amp = Math.max(amp, 0.55);
+      var cat = amp < 0.07 ? 'SMOOTH' : amp < 0.30 ? 'LIGHT' : amp < 0.72 ? 'MODERATE' : amp < 1.20 ? 'SEVERE' : 'EXTREME';
+      return { amp: amp, cat: cat, cell: cell };
+    }
+    /* Per-second probability of a strike ON the aircraft: needs an
+       electrically active cell (ltn >= ~4/min) within ~5 NM of its
+       edge, or the aircraft inside its developed anvil. Peaks at
+       ~4.5%/s in/at a supercell-class cell; zero in clear air. */
+    function strikeExposure(){
+      var best = 0, bc = null;
+      for(var i=0;i<scen.cells.length;i++){
+        var c = scen.cells[i];
+        if(c.ltn < 4) continue;
+        var p = cellPos(c);
+        var dx = S.acX - p.x, dy = S.acY - p.y;
+        var eff = Math.hypot(dx, dy) - c.r;
+        if(anvilZ(c, dx, dy, S.alt) > -100) eff = Math.min(eff, 1.2);   // in the anvil counts as very close
+        if(eff > 5) continue;
+        var pf = eff <= 0 ? 1 : 1 - eff / 5;
+        var pr = 0.045 * Math.min(1, c.ltn / 55) * pf;
+        if(pr > best){ best = pr; bc = c; }
+      }
+      return { p: best, cell: bc };
+    }
+    function triggerStrike(force){
+      if(fx.dead) return false;
+      if(!force && fxPhase() !== 'none') return false;              // never re-trigger during its own jumble/reset
+      if(!force && simTime - fx.lastStrikeT < 8) return false;      // cooldown
+      fx.lastStrikeT = simTime;
+      var now = performance.now();
+      fx.jumbleEnd = now + 2600;                                    // ~2.6 s of jumbled radar
+      fx.resetEnd = now + 2600 + 1300;                              // then ~1.3 s blanked/resetting
+      // page flash: two short pulses (~350 ms total), not a strobe
+      var fl = el('flashFx');
+      if(fl){
+        fl.style.opacity = '0.95';
+        setTimeout(function(){ fl.style.opacity = '0'; }, 130);
+        setTimeout(function(){ fl.style.opacity = '0.7'; }, 230);
+        setTimeout(function(){ fl.style.opacity = '0'; }, 360);
+      }
+      var near = strikeExposure().cell;
+      logFx('⚡ LIGHTNING STRIKE on the aircraft' + (near ? ' — nearest cell: ' + near.name : '') + '. The airframe is NOT damaged — airliners are built to take strikes and the flight continues — but the radar display has jumbled and is resetting. Mode, tilt, gain and range are retained.');
+      return true;
+    }
+    function updateFx(dt){
+      if(fx.dead) return;
+      var t = turbAtAircraft();
+      fx.amp = t.amp; fx.cat = t.cat; fx.cell = t.cell;
+      // gust series: mean-reverting random walk + discrete spikes
+      fx.gv += (-fx.gv / 0.8) * dt + fx.amp * Math.sqrt(2 * dt / 0.8) * randn();
+      if(fx.amp > 0.12 && Math.random() < fx.amp * 0.9 * dt)
+        fx.spike = (Math.random() < 0.5 ? -1 : 1) * fx.amp * (1.0 + Math.random() * 1.0);
+      fx.spike *= Math.exp(-dt / 0.5);
+      fx.g = 1 + fx.gv + fx.spike;
+      if(fx.g > fx.peakPos) fx.peakPos = fx.g;
+      if(fx.g < fx.peakNeg) fx.peakNeg = fx.g;
+      if(!fx.limitLogged && (fx.g > G_LIMIT_POS || fx.g < G_LIMIT_NEG)){
+        fx.limitLogged = true;
+        logFx('⚠ LIMIT LOAD EXCEEDED (' + fx.g.toFixed(2) + ' g) — airframe overstressed/damaged. Transport-category limits are +2.5 / −1.0 g; beyond them the structure is outside its certified envelope.');
+      }
+      if(fx.g > G_ULT_POS || fx.g < G_ULT_NEG){
+        fx.dead = true; fx.deadPeak = fx.g;
+        var lim = fx.g > 0 ? '+3.75 g' : '−1.5 g';
+        el('deadDetail').textContent = 'Peak load factor ' + fx.g.toFixed(2) + ' g exceeded the ultimate structural limit (' + lim + ') in ' + fx.cat.toLowerCase() + ' turbulence' + (fx.cell ? ' inside ' + fx.cell.name : '') + '. Beyond ultimate load the structure fails — there is no recovery.';
+        el('deadOverlay').hidden = false;
+        logFx('✖ AIRCRAFT DISINTEGRATED DUE TO STRUCTURAL OVERLOAD — peak ' + fx.g.toFixed(2) + ' g (ultimate limit ' + lim + '). Severe convective cores can exceed transport-category ultimate load; the radar exists so you never go there.');
+        return;
+      }
+      // random lightning strike on the aircraft (exposure-scaled)
+      var ex = strikeExposure();
+      if(ex.p > 0 && Math.random() < ex.p * dt) triggerStrike(false);
+    }
+    /* ---- G meter gauge (canvas) ---- */
+    function gAngle(v){
+      var f = Math.max(0, Math.min(1, (v + 2) / 6.5));              // -2 .. +4.5 g
+      return (135 + f * 270) * DEG;                                  // 270° sweep, open at the bottom
+    }
+    function drawGMeter(){
+      var cv = el('gC'); if(!cv) return;
+      var x = cv.getContext('2d');
+      var cx = 168, cy = 118, R = 100;
+      x.fillStyle = '#0b0f14'; x.fillRect(0, 0, 336, 190);
+      function arcSeg(v0, v1, col, w){
+        x.beginPath(); x.strokeStyle = col; x.lineWidth = w;
+        x.arc(cx, cy, R, gAngle(v0), gAngle(v1)); x.stroke();
+      }
+      arcSeg(-2, 4.5, '#26313e', 3);
+      arcSeg(-2, -1.5, '#ff4438', 8); arcSeg(-1.5, -1.0, '#ffb02e', 8);
+      arcSeg(2.5, 3.75, '#ffb02e', 8); arcSeg(3.75, 4.5, '#ff4438', 8);
+      // ticks + integer labels
+      x.font = '11px "Share Tech Mono",monospace'; x.textAlign = 'center';
+      for(var v = -2; v <= 4.51; v += 0.5){
+        var a = gAngle(v), big = Math.abs(v - Math.round(v)) < 0.01;
+        var r1 = R - (big ? 13 : 8), lx = cx + Math.cos(a) * (R - 24), ly = cy + Math.sin(a) * (R - 24);
+        x.strokeStyle = '#5d7185'; x.lineWidth = big ? 2 : 1;
+        x.beginPath();
+        x.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+        x.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R);
+        x.stroke();
+        if(big){ x.fillStyle = '#8fa5b8'; x.fillText((v > 0 ? '+' : '') + Math.round(v), lx, ly + 4); }
+      }
+      // peak-hold markers on the rim
+      function peakMark(v, col){
+        var a = gAngle(v), px = cx + Math.cos(a) * (R + 9), py = cy + Math.sin(a) * (R + 9);
+        x.fillStyle = col; x.beginPath();
+        x.moveTo(px, py);
+        x.lineTo(px + Math.cos(a - 2.6) * 8, py + Math.sin(a - 2.6) * 8);
+        x.lineTo(px + Math.cos(a + 2.6) * 8, py + Math.sin(a + 2.6) * 8);
+        x.closePath(); x.fill();
+      }
+      peakMark(fx.peakPos, fx.peakPos > G_LIMIT_POS ? '#ff4438' : '#ffb02e');
+      peakMark(fx.peakNeg, fx.peakNeg < G_LIMIT_NEG ? '#ff4438' : '#ffb02e');
+      // needle
+      var na = gAngle(fx.g);
+      var ncol = fx.dead || fx.g > G_ULT_POS || fx.g < G_ULT_NEG ? '#ff4438'
+               : (fx.g > G_LIMIT_POS || fx.g < G_LIMIT_NEG) ? '#ffb02e' : '#37e2ee';
+      x.strokeStyle = ncol; x.lineWidth = 3;
+      x.beginPath(); x.moveTo(cx - Math.cos(na) * 12, cy - Math.sin(na) * 12);
+      x.lineTo(cx + Math.cos(na) * (R - 16), cy + Math.sin(na) * (R - 16)); x.stroke();
+      x.fillStyle = '#d7e3ee'; x.beginPath(); x.arc(cx, cy, 5, 0, 6.29); x.fill();
+      // digital readout in the open bottom of the dial
+      x.fillStyle = ncol; x.font = 'bold 25px "Share Tech Mono",monospace';
+      x.fillText(fx.g.toFixed(2), cx, cy + 42);
+      x.fillStyle = '#5d7185'; x.font = '11px "Share Tech Mono",monospace';
+      x.fillText('G · LOAD FACTOR', cx, cy + 58);
+    }
+    function updateFxReadouts(){
+      var n = el('gNowVal'); if(!n) return;
+      n.textContent = fx.g.toFixed(2) + ' g';
+      el('gPeakVal').textContent = '+' + fx.peakPos.toFixed(2) + ' / ' + fx.peakNeg.toFixed(2) + ' g';
+      var cvv = el('gCatVal');
+      cvv.textContent = fx.dead ? 'DESTROYED' : fx.cat;
+      cvv.className = 'val' + ((fx.dead || fx.cat === 'SEVERE' || fx.cat === 'EXTREME') ? ' warn' : '');
+      var st = el('fxStatus');
+      if(fx.dead){ st.className = 'fxstatus bad'; st.textContent = '✖ AIRCRAFT DISINTEGRATED — structural overload at ' + fx.deadPeak.toFixed(2) + ' g. Restart the scenario to fly again.'; }
+      else if(fxPhase() === 'jumble'){ st.className = 'fxstatus bad'; st.textContent = '⚡ LIGHTNING STRIKE — radar display jumbled; radar controls suspended while it resets.'; }
+      else if(fxPhase() === 'reset'){ st.className = 'fxstatus warn'; st.textContent = '⚡ Radar resetting after the lightning strike — mode, tilt, gain and range retained.'; }
+      else if(fx.limitLogged){ st.className = 'fxstatus warn'; st.textContent = '⚠ LIMIT LOAD EXCEEDED this flight — airframe overstressed/damaged. Peaks so far: +' + fx.peakPos.toFixed(2) + ' / ' + fx.peakNeg.toFixed(2) + ' g.'; }
+      else { st.className = 'fxstatus'; st.textContent = fx.cat === 'SMOOTH' ? 'Calm air — 1.0 g, no airframe events.' : fx.cat + ' turbulence' + (fx.cell ? ' — ' + fx.cell.name : '') + '. Stay inside +2.5 / −1.0 g.'; }
+    }
+    /* ---- radar jumble / reset rendering (strike aftermath) ---- */
+    function drawJumble(x, W, H){
+      x.fillStyle = '#000'; x.fillRect(0, 0, W, H);
+      var cols = ['#22d84f', '#ffd21f', '#ff2a1e', '#ff2fd6', '#37e2ee', '#d7e3ee', '#123c33'];
+      for(var i=0;i<280;i++){
+        x.fillStyle = cols[(Math.random() * cols.length) | 0];
+        x.globalAlpha = 0.25 + Math.random() * 0.75;
+        x.fillRect(Math.random() * W, Math.random() * H, 4 + Math.random() * 48, 2 + Math.random() * 9);
+      }
+      for(var b=0;b<7;b++){
+        x.fillStyle = 'rgba(0,0,0,0.55)'; x.globalAlpha = 1;
+        x.fillRect(0, Math.random() * H, W, 3 + Math.random() * 14);
+      }
+      x.globalAlpha = 1;
+      x.fillStyle = 'rgba(255,233,74,0.9)'; x.font = '15px "Share Tech Mono",monospace'; x.textAlign = 'center';
+      x.fillText('⚡ RADAR FAULT — DISPLAY JUMBLED', W/2, 30);
+    }
+    function drawResetMsg(x, W, H){
+      x.fillStyle = '#000'; x.fillRect(0, 0, W, H);
+      x.fillStyle = 'rgba(255,176,46,0.85)'; x.font = '19px "Share Tech Mono",monospace'; x.textAlign = 'center';
+      x.fillText('WXR RESET — DISPLAY BLANKED', W/2, H/2 - 8);
+      x.font = '13px "Share Tech Mono",monospace'; x.fillStyle = 'rgba(255,176,46,0.5)';
+      x.fillText('Radar restarting after lightning strike — settings retained', W/2, H/2 + 18);
+    }
+    el('deadRestart').addEventListener('click', function(){
+      el('deadOverlay').hidden = true;
+      loadScenario(S.scenIdx, { restart:true });
+    });
+    /* Test hooks for headless verification (not part of the UI). */
+    window.WXR_TEST = {
+      S: S, fx: fx,
+      scen: function(){ return scen; },
+      setPos: function(x, y, alt){ S.acX = x; S.acY = y; if(alt != null) S.alt = alt; },
+      turbAtAircraft: turbAtAircraft, strikeExposure: strikeExposure,
+      strikeNow: function(){ return triggerStrike(true); },
+      phase: fxPhase
+    };
+
+    /* ================= INSTRUCTOR ================= */
+    function attAtRange(g){
+      // cumulative attenuation along the radial to the reference cell
+      if(!g) return 0;
+      var absB = (S.heading + g.brg)*DEG, dirx = Math.sin(absB), diry = Math.cos(absB);
+      var dr = Math.max(1, g.dist/40), cum = 0;
+      for(var r = dr/2; r < g.dist; r += dr){
+        var s = sampleAll(S.acX + dirx*r, S.acY + diry*r, beamAltAt(r, effTilt(), S.alt));
+        if(s.z > -100) cum += attRate(s.z)*dr;
+      }
+      return cum;
+    }
+    function setDD(id, txt, cls){ var d = el(id); d.textContent = txt; d.className = cls || ''; }
+    function updateInstructor(){
+      var g = scen.building ? cellGeom(scen.cells[0]) : refCell(), b = beamInfo(g), v = el('verdict');
+      el('distVal').textContent = Math.round(S.distFlown) + ' NM FLOWN';
+      el('hdgVal').textContent = ('00' + ((S.heading%360+360)%360)).slice(-3) + '°';
+      // steering wind + storm motion + anvil readouts
+      if(scen.windSpd != null){
+        setDD('rWind', String(Math.round(scen.windFrom)).padStart(3,'0') + '° at ' + Math.round(scen.windSpd) + ' kt (randomized per load)');
+        setDD('rMotion', 'Cells drift toward ' + compass(scen.windTo) + ' (' + String(Math.round(scen.windTo)).padStart(3,'0') + '°) at ~' + Math.round(scen.windSpd) + ' kt' + (S.scenIdx === 4 ? ' — microburst parent shower anchored' : ''));
+      }
+      if(g && !g.cell.strat && g.cell.peak0 >= 30){
+        var cf = g.cell.anvilFrac || 0;
+        if(scen.building && cf <= 0.02) setDD('rAnvil', 'None yet — young tower; an anvil only starts once the top passes ~30,000 ft / nears its cap', 'warn');
+        else setDD('rAnvil', (cf >= 0.98 ? 'Fully developed' : 'Developing (' + Math.round(cf*100) + '%)') + ' — extends ~' + anvilReach(g.cell).toFixed(1) + ' NM downwind toward ' + compass(scen.windTo) + ', at the storm top (' + fmt(g.cell.top) + ' ft). Light green only (~20–28 dBZ ice): paints only with the beam up at anvil altitude, washes out first with gain-down — but still a lightning/turbulence risk. Deviate UPWIND of it, not downwind.', cf >= 0.98 ? 'warn' : '');
+      } else if(g){
+        setDD('rAnvil', 'No anvil — ' + (g.cell.strat ? 'stratiform cell (no convective top)' : 'cell too weak/young for an anvil'));
+      } else setDD('rAnvil', '—');
+      if(!g){
+        setDD('rCell', 'No weather cell in the scan sector');
+        ['rBeam','rPeak','rTiltHint','rAtt'].forEach(function(i){ setDD(i, '—'); });
+        if(S.mode === 'OFF' || S.mode === 'STBY'){
+          v.className = 'verdict warn';
+          v.textContent = 'Radar is ' + S.mode + ': the weather has not gone away — your picture of it has. Select WX before you need the picture.';
+        } else {
+          v.className = 'verdict';
+          v.textContent = 'No weather cell in the scan sector ahead — nothing to paint. The Beam Painting table below still shows exactly which slice of sky your beam covers at each range.';
+        }
+      } else {
+        setDD('rCell', g.cell.name + ' · ' + Math.round(g.dist) + ' NM · top ' + fmt(g.cell.top) + ' ft · peak ' + g.cell.peak + ' dBZ');
+        var half = beamHalfFt(g.dist);
+        var groundNote = (b.beamAlt - half <= 0) ? ' — beam is IN THE GROUND at this range' : '';
+        setDD('rBeam', fmt(b.beamAlt) + ' ft (beam spans ' + fmt(Math.max(0, b.beamAlt - half)) + '–' + fmt(b.beamAlt + half) + ')' + groundNote,
+              groundNote ? 'bad' : '');
+        setDD('rPeak', fmt(b.peakAlt) + ' ft (brightest near freezing level ' + fmt(scen.fl) + ')');
+        var need = Math.atan((b.peakAlt - S.alt - 0.662*g.dist*g.dist)/(FT*g.dist))/DEG;
+        setDD('rTiltHint', Math.abs(need) > 15
+          ? tiltHint(need) + ' — even at the control limit the beam center cannot reach the core level (' + fmt(b.peakAlt) + ' ft) at ' + Math.round(g.dist) + ' NM (you have ' + sgn(effTilt()) + '°)'
+          : sgn(need) + '° puts beam center on the core at ' + Math.round(g.dist) + ' NM (you have ' + sgn(effTilt()) + '°' + (S.autoTilt ? ', AUTO' : '') + ')');
+        var att = attAtRange(g);
+        setDD('rAtt', att < 1 ? 'Negligible (' + att.toFixed(1) + ' dB) on this radial'
+                              : att.toFixed(1) + ' dB lost reaching the reference cell — weather behind it paints that much weaker' + (att > 9 ? ' · RADAR SHADOW' : ''),
+              att > 9 ? 'bad' : att > 4 ? 'warn' : 'good');
+        // verdict
+        var att2 = att;
+        if(S.mode === 'OFF' || S.mode === 'STBY'){
+          v.className = 'verdict warn';
+          v.textContent = 'Radar is ' + S.mode + ': the weather has not gone away — your picture of it has. Select WX before you need the picture.';
+        } else if(b.beamAlt - half <= 0 && g.dist > 8){
+          v.className = 'verdict warn';
+          v.textContent = 'PAINTING GROUND at the reference range: tilt is too low for this altitude/range. Ground returns — fuzzy green speckle where the beam grazes, building to solid red as you tilt further down — are masking the weather. Raise tilt until the ground return just disappears, then work from there.';
+        } else if(b.beamAlt - half > g.cell.top){
+          v.className = 'verdict bad';
+          v.textContent = 'OVERSHOOTING: the whole beam passes above the storm top (' + fmt(g.cell.top) + ' ft) at ' + Math.round(g.dist) + ' NM. The cell will paint weak or not at all. Tilt DOWN toward ' + tiltHint(need) + '. The SIDE view makes this obvious.';
+        } else if(att2 > 9){
+          v.className = 'verdict bad';
+          v.textContent = 'ATTENUATION SHADOW: ' + att2.toFixed(0) + ' dB has been absorbed before the beam reaches here. Anything behind this weather is painted far weaker than it is — or not painted at all. Do not plan a deviation through what is behind it.';
+        } else if(Math.abs(b.beamAlt - b.peakAlt) < 4000){
+          v.className = 'verdict good';
+          v.textContent = 'GOOD PAINT: beam center is on the cell\'s peak-reflectivity level at ' + Math.round(g.dist) + ' NM. Colors are meaningful' + (S.gain === 0 ? ' (gain at CAL).' : ' — but remember gain is ' + sgn(S.gain) + ' dB off CAL, so colors are shifted.');
+        } else if(b.beamAlt > b.peakAlt){
+          v.className = 'verdict warn';
+          v.textContent = 'PARTIAL OVERSHOOT: beam center is ' + fmt(b.beamAlt - b.peakAlt) + ' ft above the peak level — you are sampling the weaker upper storm. Expect understated colors; tilt down slightly.';
+        } else {
+          v.className = 'verdict warn';
+          v.textContent = 'UNDERSHOOTING THE CORE: beam center is ' + fmt(b.peakAlt - b.beamAlt) + ' ft below the peak level — you are sampling low in the cell (and risk ground returns at longer range). Tilt up slightly.';
+        }
+      }
+      // Building-storms scenario: growth readout overrides the generic verdict
+      if(scen.building){
+        var m = scen.cells[0], mg = cellGeom(m), rateNow = Math.round(growRate(m));
+        setDD('rCell', m.name + ' · ' + Math.round(mg.dist) + ' NM · top ' + fmt(m.top) + ' ft · peak ' + Math.round(m.peak) + ' dBZ · ▲ +' + rateNow.toLocaleString('en-US') + ' ft/min');
+        /* Scenario-specific verdicts NEVER override the radar
+           OFF/STBY warning: with the radar off the student must see
+           "the weather has not gone away", not the scenario verdict. */
+        if(S.mode === 'OFF' || S.mode === 'STBY'){
+          // radar-off verdict (set above) stands — growth readout in
+          // the Reference cell line still updates, the verdict yields
+        } else if(m.top >= S.alt){
+          v.className = 'verdict bad';
+          v.textContent = 'BUILDING STORM: the main cell has reached your altitude — top now ' + fmt(m.top) + ' ft at ' + Math.round(mg.dist) + ' NM, peak ' + Math.round(m.peak) + ' dBZ. It was below you and safe to top at load; it is NOT anymore. Deviate — do not attempt to top it now.';
+        } else {
+          var avgR = (growRate(m) + m.grow.topRate * 30) / 2;   // now-rate averaged with the tapered rate at the cap
+          var tRem = Math.round((S.alt - m.top) / Math.max(1, avgR) * 10) / 10;
+          v.className = (S.alt - m.top) < 4000 ? 'verdict bad' : 'verdict warn';
+          v.textContent = 'BUILDING STORM: main cell top ' + fmt(m.top) + ' ft — ' + fmt(S.alt - m.top) + ' ft below you and climbing at ~' + rateNow.toLocaleString('en-US') + ' ft/min (easing as it matures). It reaches your altitude in about ' + tRem + ' min of sim time. It was below you and safe to top at load; that margin is shrinking. Top it early or deviate — decide before it reaches your altitude.';
+        }
+      }
+      // PAC
+      var pacCount = 0; for(var k in S.pacAz) if(S.pacAz[k]) pacCount++;
+      if(S.mode === 'MAP') setDD('rPac', 'MAP mode — ground mapping, not weather avoidance: PAC alerting is inactive and weather returns are de-emphasized. Select WX for weather avoidance.', 'warn');
+      else if(!S.pac) setDD('rPac', 'PAC switch OFF — attenuation blindness will NOT be annunciated', 'warn');
+      else if(pacCount > 0) setDD('rPac', 'PAC ALERT ACTIVE on ' + pacCount + ' azimuths — do not trust the display beyond the yellow arc', 'bad');
+      else setDD('rPac', 'No PAC alert — cumulative attenuation within limits', 'good');
+      // Ground shadow: azimuths where attenuation blacked out the ground return
+      var shKeys = Object.keys(S.shadowAz || {}).map(function(k){ return parseFloat(k); }).sort(function(x,y){ return x-y; });
+      if(shKeys.length){
+        var shLo = Math.round(shKeys[0]), shHi = Math.round(shKeys[shKeys.length-1]);
+        setDD('rAtt', 'Attenuation shadow: ground return is completely blocked behind the core at relative bearing ' + (shLo === shHi ? shLo + '°' : shLo + '° to ' + shHi + '°') + ' — nothing beyond that cell can be trusted, weather or ground.', 'bad');
+        if(pacCount > 0) setDD('rPac', 'PAC ALERT ACTIVE on ' + pacCount + ' azimuths — and the ground return behind the core is blacked out too. Do not trust the display beyond the yellow arc.', 'bad');
+      }
+      // PWS
+      if(!scen.burst){
+        setDD('rPws', S.alt <= 2300 ? 'PWS armed (low altitude) — no shear scenario loaded'
+                                    : 'PWS inhibited above ~2,300 ft AGL — normal at cruise; it only protects on takeoff & approach', '');
+      } else {
+        var bg = burstGeom();
+        if(!S.pws) setDD('rPws', 'PWS OFF — microburst ' + bg.dist.toFixed(1) + ' NM ahead is UNDETECTED', 'bad');
+        else if(wsState === 'in') setDD('rPws', 'REACTIVE WINDSHEAR: IAS ' + Math.round(S.speed + 16*Math.sin(simTime*2.2) - (bg.dist < 0.7 ? 24 : 0)) + ' kt · VS ' + Math.round(-1500 - 600*Math.sin(simTime*3.1)) + ' fpm — ESCAPE NOW', 'bad');
+        else if(wsState === 'ahead') setDD('rPws', 'PWS ALERT — windshear detected ' + bg.dist.toFixed(1) + ' NM ahead. GO AROUND.', 'bad');
+        else if(S.alt > 2300) setDD('rPws', 'PWS INHIBITED — you are above its 2,300 ft envelope; the burst ' + bg.dist.toFixed(1) + ' NM ahead is invisible to it', 'warn');
+        else setDD('rPws', 'PWS armed, monitoring ahead (burst at ' + bg.dist.toFixed(1) + ' NM, detection ≤ ~5 NM)', 'good');
+      }
+      // Turbulence
+      if(S.mode === 'WXT'){
+        if(g && g.dist <= 40 && g.cell.turb > 0.5) setDD('rTurb', 'Turbulence painting on reference cell (within 40 NM, >20 dBZ)', 'warn');
+        else if(g && g.dist > 40) setDD('rTurb', 'Reference cell at ' + Math.round(g.dist) + ' NM — beyond the 40 NM Doppler limit. No speckle ≠ smooth air.', 'warn');
+        else setDD('rTurb', 'WX+T active — speckle appears only ≤40 NM where turb is high and return >20 dBZ', '');
+      } else {
+        setDD('rTurb', S.mode === 'MAP' ? 'MAP mode: turbulence is not depicted — MAP is for ground mapping, not weather avoidance' : S.mode === 'WX' ? 'Not in WX+T: solid magenta here means >50 dBZ, not turbulence' : 'Radar ' + S.mode, '');
+      }
+      // Lightning
+      var recent = strikes.filter(function(s){ return simTime - s.t0 < 60; }).length;
+      if(!S.ltg) setDD('rLtg', 'Overlay OFF (' + recent + ' strikes/min occurring)', 'warn');
+      else setDD('rLtg', recent + ' strikes in the last minute across all cells — note strikes in anvils/downwind, away from echoes', recent > 10 ? 'warn' : '');
+      // Aircraft effects: flight turbulence / G / peaks (debrief log is the fxEntries box)
+      if(fx.dead){
+        setDD('rFxTurb', '— flight ended (structural overload)', 'bad');
+        setDD('rGNow', fx.deadPeak.toFixed(2) + ' g — DESTROYED', 'bad');
+      } else {
+        setDD('rFxTurb', fx.cat + (fx.cell ? ' — ' + fx.cell.name : '') + (wsState === 'in' ? ' · IN MICROBURST' : ''),
+              (fx.cat === 'SEVERE' || fx.cat === 'EXTREME') ? 'bad' : fx.cat === 'MODERATE' ? 'warn' : 'good');
+        setDD('rGNow', fx.g.toFixed(2) + ' g', (fx.g > G_LIMIT_POS || fx.g < G_LIMIT_NEG) ? 'bad' : '');
+      }
+      setDD('rGPeak', '+' + fx.peakPos.toFixed(2) + ' g / ' + fx.peakNeg.toFixed(2) + ' g' + (fx.limitLogged ? ' — LIMIT EXCEEDED (overstressed)' : ''),
+            fx.limitLogged ? 'bad' : '');
+      updateBeamPaint(g, b);
+    }
+    /* ---- Beam Painting & Formulas live update ----
+       All numbers come from the simulator's own beamAltAt() and
+       beamHalfFt() (4/3-earth curvature, 3.5° beam), so the table
+       matches the SIDE-view wedge exactly. */
+    function updateBeamPaint(g, b){
+      var rowsEl = el('bpRows'); if(!rowsEl) return;
+      var tNow = effTilt();
+      var dists = [5,10,20,40,80,160,320].filter(function(d){ return d <= S.range; });
+      if(!dists.length || dists[dists.length-1] !== S.range) dists.push(S.range);
+      var refD = g ? g.dist : null;
+      var html = '', skyLines = [];
+      function rowFor(R, isRef){
+        var cA = beamAltAt(R, tNow, S.alt), hf = beamHalfFt(R);
+        var bot = cA - hf, top = cA + hf;
+        html += '<tr' + (isRef ? ' class="refrow"' : '') + '><td>' + (isRef ? '★ ' : '') + Math.round(R) + ' NM</td><td>' +
+          (bot <= 0 ? 'GROUND' : fmt(bot)) + '</td><td>' + (cA <= 0 ? 'GROUND' : fmt(cA)) + '</td><td>' + fmt(top) + '</td></tr>';
+        if(bot <= 0) skyLines.push('<b>' + Math.round(R) + ' NM:</b> painting <b>GROUND to ' + fmt(top) + ' ft</b> — the lower beam is in the terrain there');
+        else skyLines.push('<b>' + Math.round(R) + ' NM:</b> painting ' + fmt(bot) + '–' + fmt(top) + ' ft = <b>' + fmt(top - bot) + ' ft of sky</b>');
+      }
+      dists.forEach(function(d){ rowFor(d, false); });
+      if(refD && dists.indexOf(Math.round(refD)) === -1) rowFor(refD, true);
+      rowsEl.innerHTML = html;
+      // ground-intercept range at current tilt (scan the exact function)
+      var gFrom = -1;
+      for(var Rg3 = 1; Rg3 <= S.range; Rg3 += 1){ if(beamAltAt(Rg3, tNow, S.alt) - beamHalfFt(Rg3) <= 0){ gFrom = Rg3; break; } }
+      var groundLine = gFrom > 0 ? ' At tilt ' + sgn(tNow) + '° the beam <b>starts painting ground from ≈' + gFrom + ' NM outward</b> — everything at those ranges mixes weather with terrain.' :
+                                   ' At tilt ' + sgn(tNow) + '° the beam stays <b>clear of the ground</b> out to ' + S.range + ' NM.';
+      el('bpSky').innerHTML = skyLines.join('<br>') + '<br>' + groundLine;
+      // --- are we painting the nearest storm properly? ---
+      var bv = el('bpVerdict');
+      if(!g || !b){
+        bv.className = 'bp-verdict'; bv.textContent = 'No storm cell ahead in the scan sector — the table above still shows exactly which slice of sky you are painting at each range.';
+      } else {
+        var hf2 = beamHalfFt(g.dist), bot2 = b.beamAlt - hf2, top2 = b.beamAlt + hf2;
+        var needT = Math.atan((b.peakAlt - S.alt - 0.662*g.dist*g.dist)/(FT*g.dist))/DEG;
+        var head = g.cell.name + ' at ' + Math.round(g.dist) + ' NM spans ' + fmt(g.cell.base) + '–' + fmt(g.cell.top) + ' ft, core near ' + fmt(b.peakAlt) + ' ft. ';
+        var atD = 'At its distance you paint ' + (bot2 <= 0 ? 'GROUND' : fmt(bot2)) + '–' + fmt(top2) + ' ft. ';
+        var tip = Math.abs(needT) > 15
+          ? ' Tilt ' + (needT >= 0 ? 'up' : 'down') + ' to ' + tiltHint(needT) + '.'
+          : ' Tilt ' + (needT >= 0 ? 'up' : 'down') + ' to ~' + sgn(needT) + '° to center the beam on the core (~' + fmt(b.peakAlt) + ' ft).';
+        if(bot2 <= 0){ bv.className = 'bp-verdict warn'; bv.textContent = head + atD + 'You are painting GROUND at the storm\'s range — ground clutter is mixed into (and may mask) the return there.' + tip; }
+        else if(bot2 > g.cell.top){ bv.className = 'bp-verdict bad'; bv.textContent = head + atD + 'You MISS it entirely — the whole beam passes ABOVE the storm top (overshoot). It can paint weak or not at all even though it is strong below.' + tip; }
+        else if(top2 < g.cell.base){ bv.className = 'bp-verdict bad'; bv.textContent = head + atD + 'You MISS it entirely — the whole beam passes BELOW the storm (undershoot).' + tip; }
+        else if(b.peakAlt >= bot2 && b.peakAlt <= top2){ bv.className = 'bp-verdict good'; bv.textContent = head + atD + 'You are painting its reflective CORE — colors at this range mean what the legend says' + (S.gain === 0 ? ' (gain at CAL).' : ' — shifted by gain ' + sgn(S.gain) + ' dB.') ; }
+        else if(bot2 > b.peakAlt){ bv.className = 'bp-verdict warn'; bv.textContent = head + atD + 'You are painting only its TOP, above the core — returns will look weak/green though the storm is strong below.' + tip; }
+        else { bv.className = 'bp-verdict warn'; bv.textContent = head + atD + 'You are painting only its lower rain, below the core — the strongest part of the storm is above your beam and understated.' + tip; }
+      }
+      // --- worked example from live numbers ---
+      var Rw = S.range >= 40 ? 40 : Math.max(5, Math.round(S.range/2));
+      var cRule = S.alt + 100 * Rw * tNow;
+      var cExact = beamAltAt(Rw, tNow, S.alt), hfW = beamHalfFt(Rw);
+      el('bpWorked').textContent = 'Example now: ' + fmt(S.alt) + ' ft, tilt ' + sgn(tNow) + '°, at ' + Rw + ' NM — rule-of-thumb center = ' + fmt(S.alt) + (tNow < 0 ? ' − ' : ' + ') + '100×' + Rw + '×' + Math.abs(tNow) + ' = ' + fmt(cRule) + ' ft (sim, with curvature: ' + fmt(cExact) + ' ft); beam paints ' + (cExact - hfW <= 0 ? 'GROUND' : fmt(cExact - hfW)) + '–' + fmt(cExact + hfW) + ' ft there.';
+    }
+
+    /* ================= CONTROLS ================= */
+    function segWire(id, attr, fn){
+      var seg = el(id);
+      seg.addEventListener('click', function(e){
+        var btn = e.target.closest('button'); if(!btn) return;
+        if((id === 'modeSeg' || id === 'rangeSeg') && fxRadarDown()) return;   // radar controls suspended during strike jumble/reset
+        seg.querySelectorAll('button').forEach(function(x){ x.classList.remove('on'); });
+        btn.classList.add('on'); fn(btn.dataset[attr]);
+      });
+    }
+    function setSeg(id, attr, val){
+      el(id).querySelectorAll('button').forEach(function(x){ x.classList.toggle('on', x.dataset[attr] === String(val)); });
+    }
+    function normalizeView(v){ return (v === 'top' || v === 'side' || v === 'split') ? v : 'split'; }
+    function applyView(v){
+      S.view = normalizeView(v);
+      el('displays').className = 'displays v-' + S.view;
+      setSeg('viewSeg', 'view', S.view);
+    }
+    segWire('viewSeg', 'view', function(v){ applyView(v); });
+    segWire('simSeg', 'sim', function(v){ S.simSpeed = parseInt(v, 10); });
+    segWire('modeSeg', 'mode', function(m){
+      S.mode = m; el('modeVal').textContent = m === 'WXT' ? 'WX+T' : m;
+      el('swTURB').classList.toggle('on', m === 'WXT');
+      el('swTURB').setAttribute('aria-checked', m === 'WXT' ? 'true' : 'false');
+      fullRepaint();
+    });
+    segWire('rangeSeg', 'range', function(v){
+      S.range = parseInt(v, 10); el('rangeVal').textContent = v + ' NM'; fullRepaint();
+    });
+    el('gainSlider').addEventListener('input', function(){
+      if(fxRadarDown()){ this.value = S.gain; return; }   // suspended during strike jumble/reset — snap back so the slider never disagrees with the retained setting
+      S.gain = parseFloat(this.value);
+      var gv = el('gainVal');
+      gv.textContent = S.gain === 0 ? 'CAL' : sgn(S.gain) + ' dB';
+      gv.className = 'val' + (S.gain === 0 ? '' : ' warn');
+      fullRepaint();
+    });
+    el('calBtn').addEventListener('click', function(){
+      el('gainSlider').value = 0; el('gainSlider').dispatchEvent(new Event('input'));
+    });
+    el('tiltSlider').addEventListener('input', function(){
+      if(fxRadarDown()){ this.value = S.tilt; return; }   // suspended during strike jumble/reset — snap back so the slider never disagrees with the retained setting
+      S.tilt = parseFloat(this.value);
+      if(S.autoTilt){ S.autoTilt = false; el('autoTiltBtn').classList.remove('on'); el('autoTiltBtn').setAttribute('aria-pressed', 'false'); }
+      el('tiltVal').textContent = sgn(S.tilt) + '°';
+      fullRepaint();
+    });
+    el('autoTiltBtn').addEventListener('click', function(){
+      S.autoTilt = !S.autoTilt; this.classList.toggle('on', S.autoTilt);
+      this.setAttribute('aria-pressed', S.autoTilt ? 'true' : 'false');
+      el('tiltVal').textContent = S.autoTilt ? 'AUTO ' + sgn(effTilt()) + '°' : sgn(S.tilt) + '°';
+      fullRepaint();
+    });
+    el('gndMethodBtn').addEventListener('click', function(){
+      // tilt down until ground paints at ~90% range, then up 1.5°
+      var Rg = S.range * 0.9;
+      var tg = Math.atan((-S.alt - 0.662*Rg*Rg + beamHalfFt(Rg)*0.4)/(FT*Rg))/DEG;
+      S.tilt = Math.max(-15, Math.min(15, tg + 1.5));
+      S.autoTilt = false; el('autoTiltBtn').classList.remove('on'); el('autoTiltBtn').setAttribute('aria-pressed', 'false');
+      el('tiltSlider').value = S.tilt;
+      el('tiltVal').textContent = sgn(S.tilt) + '°';
+      fullRepaint();
+      var v = el('verdict');
+      v.className = 'verdict good';
+      v.textContent = 'GROUND-RETURN METHOD APPLIED: tilt was lowered until the beam\'s lower edge just touched the ground at ' + Math.round(Rg) + ' NM, then raised 1.5°. Beam center is now referenced to the surface — the standard way to sanity-check tilt at any altitude.';
+    });
+    function bindSwitch(id, fn){
+      var n = el(id);
+      function fire(){
+        n.classList.toggle('on');
+        n.setAttribute('aria-checked', n.classList.contains('on') ? 'true' : 'false');
+        fn(n.classList.contains('on'));
+      }
+      n.addEventListener('click', fire);
+      n.addEventListener('keydown', function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); fire(); } });
+    }
+    bindSwitch('swPWS', function(on){ S.pws = on; });
+    bindSwitch('swPAC', function(on){ S.pac = on; fullRepaint(); });
+    bindSwitch('swLTG', function(on){ S.ltg = on; });
+    bindSwitch('swGCS', function(on){ S.gcs = on; fullRepaint(); });
+    bindSwitch('swTruth', function(on){ S.truth = on; });
+    bindSwitch('swTURB', function(on){
+      if(fxRadarDown()){   // radar controls suspended during strike jumble/reset, same as the mode buttons — revert the toggle
+        var cur = S.mode === 'WXT';
+        el('swTURB').classList.toggle('on', cur);
+        el('swTURB').setAttribute('aria-checked', cur ? 'true' : 'false');
+        return;
+      }
+      S.mode = on ? 'WXT' : 'WX';
+      el('modeVal').textContent = on ? 'WX+T' : 'WX';
+      setSeg('modeSeg', 'mode', S.mode);
+      fullRepaint();
+    });
+    el('altSlider').addEventListener('input', function(){
+      S.alt = parseInt(this.value, 10);
+      el('altVal').textContent = fmt(S.alt) + ' FT'; fullRepaint();
+    });
+    el('spdSlider').addEventListener('input', function(){
+      S.speed = parseInt(this.value, 10);
+      el('spdVal').textContent = S.speed + ' KT';
+    });
+    document.querySelectorAll('[data-dev]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        S.heading = ((S.heading + parseInt(btn.dataset.dev, 10)) % 360 + 360) % 360;
+        fullRepaint();
+      });
+    });
+    el('pauseBtn').addEventListener('click', function(){
+      S.paused = !S.paused;
+      this.textContent = S.paused ? '▶ RESUME FLIGHT' : '❚❚ PAUSE FLIGHT';
+      this.classList.toggle('on', S.paused);
+      this.setAttribute('aria-pressed', S.paused ? 'true' : 'false');
+    });
+    topC.addEventListener('click', function(e){
+      var r = topC.getBoundingClientRect();
+      var px = (e.clientX - r.left) * (740 / r.width) - TCX;
+      var py = (e.clientY - r.top) * (700 / r.height) - TCY;
+      var dist = Math.hypot(px, py) / topScale();
+      var brg = Math.atan2(px, -py)/DEG;
+      var absB = (S.heading + brg)*DEG;
+      var wx = S.acX + Math.sin(absB)*dist, wy = S.acY + Math.cos(absB)*dist;
+      var best = null, bd = 1e9;
+      scen.cells.forEach(function(c){
+        var p = cellPos(c), d = Math.hypot(p.x - wx, p.y - wy);
+        if(d < bd){ bd = d; best = c; }
+      });
+      S.selected = (best && bd < best.r + 5) ? best : null;
+    });
+    el('instHead').addEventListener('click', function(){
+      var body = el('instBody'), open = body.style.display !== 'none';
+      body.style.display = open ? 'none' : '';
+      el('instCaret').textContent = open ? '▸ expand' : '▾ collapse';
+    });
+    el('checkBtn').addEventListener('click', function(){
+      var res = scen.check();
+      var fb = el('chFb');
+      fb.textContent = (res.ok ? '✓ ' : '✗ ') + res.msg;
+      fb.className = 'fb show ' + (res.ok ? 'ok' : 'no');
+      if(res.ok) el('doneBadge').classList.add('show');
+    });
+    el('dryBtn').addEventListener('click', function(){
+      S.dryBurst = !S.dryBurst;
+      var c0 = scen.cells[0];
+      if(S.dryBurst){ c0.peak = 24; c0.turb = 0.15; c0.ltn = 0; }       // dry: SAME storm collapsed to a weak virga-like echo — burst/shear unchanged
+      else { c0.peak = c0.peak0; c0.turb = c0.turb0; c0.ltn = c0.ltn0; } // wet: restore the full 54 dBZ parent CB
+      this.textContent = 'DRY MICROBURST: ' + (S.dryBurst ? 'ON — same burst under a weak ~24 dBZ virga echo, shear unchanged' : 'OFF');
+      this.classList.toggle('on', S.dryBurst);
+      this.setAttribute('aria-pressed', S.dryBurst ? 'true' : 'false');
+      fullRepaint();
+    });
+    el('resetFlightBtn').addEventListener('click', function(){ loadScenario(S.scenIdx, { restart:true }); });
+
+    /* ================= SCENARIO LOADING ================= */
+    var scenSel = el('scenSel');
+    SCEN.forEach(function(s, i){
+      var o = document.createElement('option'); o.value = i; o.textContent = s.name; scenSel.appendChild(o);
+    });
+    scenSel.addEventListener('change', function(){ loadScenario(parseInt(this.value, 10)); });
+    function loadScenario(i, opts){
+      S.scenIdx = i; scen = SCEN[i];
+      S.acX = 0; S.acY = 0; S.heading = 0; S.distFlown = 0; S.selected = null;
+      S.dryBurst = false; flags = {}; strikes = []; terrainSeed = (Math.random()*1e9)|0;
+      resetFx();
+      /* --- random steering wind for this load (re-rolled every load) ---
+         Bands by scenario index: squall line & tropical faster,
+         frontal / winter / microburst slower, cruise convection mid. */
+      var WINDBANDS = [[15,45],[28,48],[20,40],[18,35],[5,12],[30,50],[10,22],[8,18],[15,40]];
+      var band = WINDBANDS[i] || [15,45];
+      scen.windFrom = Math.random()*360;
+      scen.windSpd = band[0] + Math.random()*(band[1]-band[0]);
+      scen.windTo = (scen.windFrom + 180) % 360;                      // direction cells drift TOWARD
+      scen._t0 = simTime;
+      var wux = Math.sin(scen.windTo*DEG), wuy = Math.cos(scen.windTo*DEG);
+      scen.cells.forEach(function(c, ci){
+        c._acc = 0; c.top = c.top0; c.peak = c.peak0; c.turb = c.turb0; c.ltn = c.ltn0; randomizeShape(c);
+        /* per-cell motion: common wind + small jitter (speed ×0.85–1.15,
+           direction ±9°) so systems move together, not as a stencil */
+        var anchored = (i === 4 && ci === 0);                         // microburst parent shower stays over its ground point
+        var slowStrat = (i === 4 && c.strat);
+        var fSpd = anchored ? 0 : slowStrat ? 0.35 : 0.85 + Math.random()*0.30;
+        var dDir = anchored ? 0 : (Math.random()*18 - 9);
+        var spd = scen.windSpd * fSpd, dirTo = (scen.windTo + dDir) * DEG;
+        c.mvx = Math.sin(dirTo) * spd / 3600;                         // NM per sim-second
+        c.mvy = Math.cos(dirTo) * spd / 3600;
+        c.motionSpd = spd; c.motionDir = ((scen.windTo + dDir) % 360 + 360) % 360;
+        /* anvil initial state: mature cells start partly developed and
+           finish within ~a minute; building-scenario towers start bare */
+        c.anvilUx = wux; c.anvilUy = wuy;                             // anvil spreads along the (common) motion direction
+        c.anvilMax = 1.0 + Math.random()*0.5;
+        if(i === 2 && ci === 0) c.anvilMax = 1.8;                     // supercell: largest anvil
+        else if(i === 1) c.anvilMax = 1.3 + Math.random()*0.3;        // squall line
+        else if(i === 0) c.anvilMax = 1.3 + Math.random()*0.3;        // isolated CB
+        c.anvilGrowSecs = 45 + Math.random()*45;
+        if(c.strat || c.peak0 < 30 || scen.building) c.anvilFrac = 0;
+        else if(i === 2 && ci === 0) c.anvilFrac = 0.55 + Math.random()*0.15;
+        else c.anvilFrac = 0.30 + Math.random()*0.30;
+      });
+      el('scenWind').innerHTML = '<b>Steering wind</b> ' + String(Math.round(scen.windFrom)).padStart(3,'0') + '° at ' + Math.round(scen.windSpd) + ' kt — storms drift <b>toward ' + compass(scen.windTo) + ' (' + String(Math.round(scen.windTo)).padStart(3,'0') + '°)</b> at ~' + Math.round(scen.windSpd) + ' kt. Anvils develop over the first minute or so of sim time and spread downwind, toward ' + compass(scen.windTo) + '.' + (i === 4 ? ' Exception: the microburst\'s parent shower is anchored over its ground point — a burst is short-lived and does not drift away on approach.' : '');
+      S.alt = scen.alt; S.speed = scen.speed; S.range = scen.range; S.tilt = scen.tilt; S.gain = scen.gain;
+      el('altSlider').value = S.alt; el('altVal').textContent = fmt(S.alt) + ' FT';
+      el('spdSlider').value = S.speed; el('spdVal').textContent = S.speed + ' KT';
+      el('gainSlider').value = S.gain;
+      el('gainVal').textContent = S.gain === 0 ? 'CAL' : sgn(S.gain) + ' dB';
+      el('gainVal').className = 'val' + (S.gain === 0 ? '' : ' warn');
+      S.autoTilt = false; el('autoTiltBtn').classList.remove('on'); el('autoTiltBtn').setAttribute('aria-pressed', 'false');
+      el('tiltSlider').value = S.tilt; el('tiltVal').textContent = sgn(S.tilt) + '°';
+      /* --- system switches + mode reset to the scenario defaults on
+         EVERY load, exactly like tilt/gain/range above: a switch
+         changed in one scenario never silently carries into the
+         next. The default set every scenario was designed with:
+         mode WX, PWS on, PAC on, LIGHTNING on, TURB off, GCS off,
+         SHOW TRUTH off. (Scenario 5's lesson depends on PWS starting
+         ON; scenario 2's challenge has the student enable SHOW
+         TRUTH themselves.) */
+      S.mode = 'WX'; setSeg('modeSeg', 'mode', 'WX'); el('modeVal').textContent = 'WX';
+      S.pws = true; S.pac = true; S.ltg = true; S.gcs = false; S.truth = false;
+      [['swPWS', true], ['swPAC', true], ['swLTG', true], ['swTURB', false], ['swGCS', false], ['swTruth', false]].forEach(function(pr){
+        var n = el(pr[0]); if(!n) return;
+        n.classList.toggle('on', pr[1]); n.setAttribute('aria-checked', pr[1] ? 'true' : 'false');
+      });
+      /* --- RESTART behavior: a restart (Restart button or the
+         disintegration overlay) always comes back at 1× and PAUSED,
+         so e.g. the microburst approach cannot kill the learner
+         again before they can act. Plain scenario-menu selection
+         does not pass the restart flag and keeps its behavior. */
+      if(opts && opts.restart){
+        S.simSpeed = 1; setSeg('simSeg', 'sim', 1);
+        S.paused = true;
+        var pb = el('pauseBtn');
+        pb.textContent = '▶ RESUME FLIGHT'; pb.classList.add('on'); pb.setAttribute('aria-pressed', 'true');
+      }
+      el('rangeVal').textContent = S.range + ' NM';
+      setSeg('rangeSeg', 'range', S.range);
+      el('scenBrief').innerHTML = scen.brief;
+      var trap = el('scenTrap');
+      if(scen.trap){ trap.style.display = ''; trap.textContent = scen.trap; } else trap.style.display = 'none';
+      el('dryRow').hidden = !scen.burst;
+      el('dryBtn').textContent = 'DRY MICROBURST: OFF'; el('dryBtn').classList.remove('on'); el('dryBtn').setAttribute('aria-pressed', 'false');
+      el('chText').textContent = scen.challenge;
+      el('chFb').className = 'fb'; el('doneBadge').classList.remove('show');
+      fullRepaint(); updateInstructor();
+    }
+
+    /* ================= MAIN LOOP ================= */
+    var lastT = performance.now(), instAcc = 0, meterAcc = 0;
+    function frame(now){
+      var dt = Math.min(0.05, (now - lastT)/1000); lastT = now;
+      var frameDtSim = 0;
+      if(!S.paused && !fx.dead){
+        var dtSim = dt * S.simSpeed;
+        frameDtSim = dtSim;
+        simTime += dtSim;
+        var step = S.speed/3600 * dtSim, hr = S.heading*DEG;
+        S.acX += Math.sin(hr)*step; S.acY += Math.cos(hr)*step;
+        S.distFlown += step;
+        updateGrowth(dtSim);
+        updateAnvils(dtSim);
+        updateLightning(dtSim);
+      }
+      updateWindshear();
+      if(frameDtSim > 0) updateFx(frameDtSim);
+      // lightning reset completion: sweep restarts, picture repainted, settings retained
+      if(fx.resetEnd && performance.now() >= fx.resetEnd){
+        fx.jumbleEnd = 0; fx.resetEnd = 0; sweepAng = -60; sweepDir = 1;
+        fullRepaint();
+        logFx('Radar reset complete — display restored after the strike. Mode, tilt, gain and range are exactly as you left them.');
+      }
+      // sweep: repaint radials as the beam passes them (frozen when dead or radar down)
+      if(radarActive() && !fxRadarDown() && !fx.dead){
+        var prev = sweepAng;
+        sweepAng += sweepDir * dt * 32;
+        if(sweepAng > 60){ sweepAng = 60; sweepDir = -1; }
+        if(sweepAng < -60){ sweepAng = -60; sweepDir = 1; }
+        var lo = Math.min(prev, sweepAng), hi = Math.max(prev, sweepAng);
+        for(var a = Math.ceil(lo/2)*2; a <= hi; a += 2) paintRadial(a);
+        if(Math.abs(sweepAng - prev) < 2) paintRadial(Math.round(sweepAng/2)*2);
+      }
+      if(S.view === 'top') drawTop();
+      else if(S.view === 'side') drawSide();
+      else { if(S.view !== 'split') applyView('split'); drawTop(); drawSide(); }
+      instAcc += dt;
+      if(instAcc > 0.3){ instAcc = 0; updateInstructor(); }
+      meterAcc += dt;
+      if(meterAcc > 0.1){ meterAcc = 0; drawGMeter(); updateFxReadouts(); }   // G meter at ~10 Hz
+      requestAnimationFrame(frame);
+    }
+    loadScenario(0);
+    // default truth ON to match the switch's initial state is confusing; start OFF per switch default:
+    el('swTruth').classList.remove('on'); el('swTruth').setAttribute('aria-checked', 'false'); S.truth = false;
+    requestAnimationFrame(frame);
+    </script>
+    <script>
+    'use strict';
+    /* ================================================================
+       AIRCRAFT & WEATHER — LEARNING (guarded, isolated)
+       TRUE-weather external 3D diorama only. NOT a radar display,
+       NOT a radar view mode. Everything
+       here is defined before use and every frame is wrapped in
+       try/catch, so a failure in this view can NEVER kill the
+       radar script above. It renders only when switched on.
+       ================================================================ */
+    var ovEl = function(id){ return document.getElementById(id); };
+    var ovOn = { external:false };
+    var ovVex = 3;           // vertical exaggeration factor, external view
+
+    function ovLerp(a, b, f){ return a + (b - a) * f; }
+    function ovMix(c1, c2, f){
+      return 'rgb(' + Math.round(ovLerp(c1[0], c2[0], f)) + ',' + Math.round(ovLerp(c1[1], c2[1], f)) + ',' + Math.round(ovLerp(c1[2], c2[2], f)) + ')';
+    }
+    function ovCellGeom(c){
+      try { return (typeof cellGeom === 'function') ? cellGeom(c) : null; } catch(e){ return null; }
+    }
+
+    /* ---------------- toggles ---------------- */
+    function ovBindToggle(id, key, wrapId){
+      var n = ovEl(id); if(!n) return;
+      function flip(){
+        n.classList.toggle('on');
+        ovOn[key] = n.classList.contains('on');
+        n.setAttribute('aria-checked', ovOn[key] ? 'true' : 'false');
+        var w = ovEl(wrapId); if(w) w.hidden = !ovOn[key];
+      }
+      n.addEventListener('click', flip);
+      n.addEventListener('keydown', function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); flip(); } });
+    }
+    ovBindToggle('swExternal', 'external', 'externalWrap');
+
+    /* ================= EXTERNAL 3D LEARNING VIEW ================= */
+    var ovCam = { az: 35, el: 32, dist: 115 };
+    var ovDragging = null;
+    function ovSetCam(name){
+      try {
+        var h = ((S.heading % 360) + 360) % 360;
+        if(name === 'chase'){ ovCam.az = h + 180; ovCam.el = 16; ovCam.dist = 60; }
+        else if(name === 'side'){ ovCam.az = h + 90; ovCam.el = 11; ovCam.dist = 95; }
+        else { ovCam.az = h + 35; ovCam.el = 52; ovCam.dist = 138; }
+      } catch(e){}
+    }
+    (function(){
+      var wrap = ovEl('externalWrap'); if(!wrap) return;
+      wrap.querySelectorAll('[data-cam]').forEach(function(b){
+        b.addEventListener('click', function(){ ovSetCam(b.dataset.cam); });
+      });
+      var cv = ovEl('extC'); if(!cv) return;
+      function pos(e){ var r = cv.getBoundingClientRect(); var t = (e.touches && e.touches[0]) ? e.touches[0] : e; return { x: t.clientX - r.left, y: t.clientY - r.top }; }
+      cv.addEventListener('mousedown', function(e){ ovDragging = pos(e); });
+      window.addEventListener('mouseup', function(){ ovDragging = null; });
+      cv.addEventListener('mousemove', function(e){
+        if(!ovDragging) return; var p = pos(e);
+        ovCam.az += (p.x - ovDragging.x) * 0.45;
+        ovCam.el = Math.max(4, Math.min(84, ovCam.el + (p.y - ovDragging.y) * 0.35));
+        ovDragging = p;
+      });
+      cv.addEventListener('touchstart', function(e){ ovDragging = pos(e); }, { passive: true });
+      cv.addEventListener('touchmove', function(e){
+        if(!ovDragging) return; var p = pos(e);
+        ovCam.az += (p.x - ovDragging.x) * 0.45;
+        ovCam.el = Math.max(4, Math.min(84, ovCam.el + (p.y - ovDragging.y) * 0.35));
+        ovDragging = p;
+      }, { passive: true });
+      cv.addEventListener('touchend', function(){ ovDragging = null; });
+    })();
+    ovSetCam('oblique');
+
+    function drawExternal(){
+      var cv = ovEl('extC'); if(!cv) return;
+      if(typeof scen === 'undefined' || !scen) return;
+      var x = cv.getContext('2d');
+      var W = cv.width, H = cv.height;
+      var DEG2 = Math.PI / 180, FT2 = 6076.12;
+      x.fillStyle = '#0a1017'; x.fillRect(0, 0, W, H);
+      var range = (typeof S !== 'undefined' && S.range) ? S.range : 80;
+      var fwdNM = Math.min(range * 0.55, 55);
+      var hdgR = S.heading * DEG2;
+      var fwdX = Math.sin(hdgR), fwdY = Math.cos(hdgR);
+      var focus = { x: fwdX * fwdNM * 0.45, y: fwdY * fwdNM * 0.45, z: -5 }; // z midway between aircraft level and the ground (exaggerated NM) so full tower heights fit the frame
+      var azR = ovCam.az * DEG2, elR = ovCam.el * DEG2;
+      var camPos = { x: focus.x + ovCam.dist * Math.cos(elR) * Math.sin(azR),
+                     y: focus.y + ovCam.dist * Math.cos(elR) * Math.cos(azR),
+                     z: focus.z + ovCam.dist * Math.sin(elR) * 0.55 };
+      var fw = { x: focus.x - camPos.x, y: focus.y - camPos.y, z: focus.z - camPos.z };
+      var fl = Math.hypot(fw.x, fw.y, fw.z) || 1; fw.x /= fl; fw.y /= fl; fw.z /= fl;
+      var rt = { x: fw.y, y: -fw.x, z: 0 }; var rl = Math.hypot(rt.x, rt.y) || 1; rt.x /= rl; rt.y /= rl;
+      var up = { x: rt.y * fw.z - rt.z * fw.y, y: rt.z * fw.x - rt.x * fw.z, z: rt.x * fw.y - rt.y * fw.x };
+      var focal = W * 0.92, cxp = W / 2, cyp = H / 2 + 18;
+      function P(wx, wy, wzFt){
+        var wz = (wzFt / FT2) * ovVex;
+        var dx = wx - camPos.x, dy = wy - camPos.y, dz = wz - camPos.z;
+        var cz = dx * fw.x + dy * fw.y + dz * fw.z;
+        if(cz < 1.5) return null;
+        return { x: cxp + (dx * rt.x + dy * rt.y + dz * rt.z) / cz * focal,
+                 y: cyp - (dx * up.x + dy * up.y + dz * up.z) / cz * focal, z: cz };
+      }
+      function P0(wx, wy, wzNM){ // wz already in exaggerated NM
+        var dx = wx - camPos.x, dy = wy - camPos.y, dz = wzNM - camPos.z;
+        var cz = dx * fw.x + dy * fw.y + dz * fw.z;
+        if(cz < 1.5) return null;
+        return { x: cxp + (dx * rt.x + dy * rt.y + dz * rt.z) / cz * focal,
+                 y: cyp - (dx * up.x + dy * up.y + dz * up.z) / cz * focal, z: cz };
+      }
+      function poly(pts, fill, stroke, alpha){
+        var pp = [], i2;
+        for(i2 = 0; i2 < pts.length; i2++){ if(!pts[i2]) return; pp.push(pts[i2]); }
+        x.save(); x.globalAlpha = alpha == null ? 1 : alpha;
+        x.beginPath(); x.moveTo(pp[0].x, pp[0].y);
+        for(i2 = 1; i2 < pp.length; i2++) x.lineTo(pp[i2].x, pp[i2].y);
+        x.closePath();
+        if(fill){ x.fillStyle = fill; x.fill(); }
+        if(stroke){ x.strokeStyle = stroke; x.lineWidth = 1; x.stroke(); }
+        x.restore();
+      }
+      var gndZ = -S.alt; // ft
+      // ground plane + range grid
+      x.save();
+      for(var gx = -80; gx <= 80; gx += 20){
+        var a1 = P(gx, -30, gndZ), a2 = P(gx, range + 30, gndZ);
+        if(a1 && a2){ x.strokeStyle = 'rgba(90,140,110,0.35)'; x.beginPath(); x.moveTo(a1.x, a1.y); x.lineTo(a2.x, a2.y); x.stroke(); }
+      }
+      for(var gy = -20; gy <= range + 20; gy += 20){
+        // grid lines across, in world coords rotated to heading frame is unnecessary: use absolute east/north grid
+        var c1 = P(-90, gy, gndZ), c2 = P(90, gy, gndZ);
+        if(c1 && c2){ x.strokeStyle = 'rgba(90,140,110,0.35)'; x.beginPath(); x.moveTo(c1.x, c1.y); x.lineTo(c2.x, c2.y); x.stroke(); }
+        if(gy >= 0){
+          var lp = P(fwdX * gy - Math.cos(hdgR) * 2, fwdY * gy + Math.sin(hdgR) * 2, gndZ);
+          if(lp){ x.fillStyle = 'rgba(160,200,175,0.8)'; x.font = '11px "Share Tech Mono",monospace'; x.textAlign = 'center'; x.fillText(gy + ' NM', lp.x, lp.y); }
+        }
+      }
+      x.restore();
+      // flown / forecast path
+      (function(){
+        x.save(); x.strokeStyle = '#37e2ee'; x.lineWidth = 2; x.setLineDash([]);
+        var p0 = P(0, 0, 0), pBack = P(-fwdX * 26, -fwdY * 26, 0);
+        if(p0 && pBack){ x.globalAlpha = 0.55; x.beginPath(); x.moveTo(pBack.x, pBack.y); x.lineTo(p0.x, p0.y); x.stroke(); }
+        var pF = P(fwdX * 30, fwdY * 30, 0);
+        if(p0 && pF){ x.globalAlpha = 0.9; x.setLineDash([6, 5]); x.beginPath(); x.moveTo(p0.x, p0.y); x.lineTo(pF.x, pF.y); x.stroke(); }
+        x.restore();
+      })();
+      // towers far-to-near
+      var towers = [];
+      for(var ti = 0; ti < scen.cells.length; ti++){
+        var tp = (typeof cellPos === 'function') ? cellPos(scen.cells[ti]) : { x: scen.cells[ti].dx, y: scen.cells[ti].dy };
+        var relX = tp.x - S.acX, relY = tp.y - S.acY;
+        var camDx = relX - camPos.x, camDy = relY - camPos.y;
+        towers.push({ c: scen.cells[ti], x: relX, y: relY, depth: Math.hypot(camDx, camDy) });
+      }
+      towers.sort(function(a, b){ return b.depth - a.depth; });
+      for(var tw = 0; tw < towers.length; tw++){
+        (function(T){
+          var c = T.c;
+          var N = 14, basePts = [], topPts = [], ai;
+          for(ai = 0; ai < N; ai++){
+            var ang = ai / N * Math.PI * 2;
+            var rr = (typeof shapeR === 'function') ? shapeR(c, ang) : c.r;
+            var ox = Math.sin(ang) * rr, oy = Math.cos(ang) * rr;
+            basePts.push(P(T.x + ox, T.y + oy, c.base - S.alt));
+            topPts.push(P(T.x + ox, T.y + oy, c.top - S.alt));
+          }
+          var pkF = Math.max(0, Math.min(1, ((c.peak || 20) - 18) / 38));
+          var towerFill = c.strat ? 'rgba(150,168,182,0.30)' : ovMix([140, 165, 190], [88, 96, 118], pkF);
+          for(ai = 0; ai < N; ai++){
+            var ni = (ai + 1) % N;
+            poly([basePts[ai], basePts[ni], topPts[ni], topPts[ai]], towerFill, 'rgba(210,226,238,0.20)', c.strat ? 0.55 : 0.42);
+          }
+          poly(topPts, c.strat ? 'rgba(190,202,212,0.5)' : 'rgba(205,218,228,0.55)', 'rgba(230,240,246,0.4)', 0.8);
+          // inner core column (peak reflectivity)
+          if(!c.strat && (c.peak || 0) >= 30){
+            var cb = [], ct = [], coreTop = c.base + (c.top - c.base) * 0.82;
+            for(ai = 0; ai < N; ai++){
+              var ang2 = ai / N * Math.PI * 2;
+              var rr2 = ((typeof shapeR === 'function') ? shapeR(c, ang2) : c.r) * 0.44;
+              cb.push(P(T.x + Math.sin(ang2) * rr2, T.y + Math.cos(ang2) * rr2, c.base - S.alt));
+              ct.push(P(T.x + Math.sin(ang2) * rr2, T.y + Math.cos(ang2) * rr2, coreTop - S.alt));
+            }
+            var coreCol = (typeof colorFor === 'function') ? colorFor(c.peak) : '#ff2a1e';
+            for(ai = 0; ai < N; ai++){ var nj = (ai + 1) % N; poly([cb[ai], cb[nj], ct[nj], ct[ai]], coreCol, null, 0.5); }
+            poly(ct, coreCol, null, 0.55);
+          }
+          // rain shaft to the ground under strong wet cores
+          if(!c.strat && (c.peak || 0) >= 38){
+            var rb = [], rg = [];
+            for(ai = 0; ai < N; ai++){
+              var ang3 = ai / N * Math.PI * 2;
+              var rr3 = ((typeof shapeR === 'function') ? shapeR(c, ang3) : c.r) * 0.78;
+              rb.push(P(T.x + Math.sin(ang3) * rr3, T.y + Math.cos(ang3) * rr3, c.base - S.alt));
+              rg.push(P(T.x + Math.sin(ang3) * rr3, T.y + Math.cos(ang3) * rr3, gndZ));
+            }
+            for(ai = 0; ai < N; ai++){ var nk = (ai + 1) % N; poly([rg[ai], rg[nk], rb[nk], rb[ai]], 'rgba(110,140,170,0.30)', null, 0.5); }
+          }
+          // anvil cap: flat, offset downwind at the top
+          try {
+            if(!c.strat && (c.anvilFrac || 0) > 0.05 && typeof anvilReach === 'function'){
+              var reach = anvilReach(c), capPts = [];
+              var ccx = T.x + (c.anvilUx || 0) * (c.r * 0.3 + reach * 0.45), ccy = T.y + (c.anvilUy || 1) * (c.r * 0.3 + reach * 0.45);
+              for(ai = 0; ai < N; ai++){
+                var ang4 = ai / N * Math.PI * 2;
+                // ellipse stretched along the wind
+                var lx = Math.sin(ang4), ly = Math.cos(ang4);
+                var along = lx * (c.anvilUx || 0) + ly * (c.anvilUy || 1);
+                var stretch = 1 + 0.55 * Math.abs(along);
+                capPts.push(P(ccx + lx * c.r * 1.05 * stretch, ccy + ly * c.r * 1.05 * stretch, c.top + 250 - S.alt));
+              }
+              poly(capPts, 'rgba(205,218,228,0.42)', 'rgba(230,240,246,0.5)', 0.85);
+            }
+          } catch(e){}
+          // label
+          var lp2 = P(T.x, T.y, c.top - S.alt);
+          if(lp2 && !c.noRef){
+            x.fillStyle = 'rgba(230,240,246,0.92)'; x.font = '12px "Share Tech Mono",monospace'; x.textAlign = 'center';
+            x.fillText(c.name + ' · top ' + Math.round(c.top / 100) / 10 + 'k · ' + Math.round(c.peak) + ' dBZ', lp2.x, lp2.y - 20);
+          }
+        })(towers[tw]);
+      }
+      // radar beam wedge (teaching link)
+      var beamChk = ovEl('beamChk');
+      if(!beamChk || beamChk.checked){
+        try {
+          var tilt = (typeof effTilt === 'function') ? effTilt() : S.tilt;
+          var R = range;
+          var beamAz = (typeof sweepAng !== 'undefined') ? sweepAng : 0;
+          var azR2 = (S.heading + beamAz) * DEG2;
+          var bx = Math.sin(azR2), by = Math.cos(azR2);
+          var rx2 = Math.cos(azR2), ry2 = -Math.sin(azR2);
+          var cenFt = (typeof beamAltAt === 'function') ? beamAltAt(R, tilt, S.alt) - S.alt : R * FT2 * Math.tan(tilt * DEG2);
+          var halfFt = (typeof beamHalfFt === 'function') ? beamHalfFt(R) : R * FT2 * Math.tan(1.75 * DEG2);
+          var halfNM = R * Math.tan(1.75 * DEG2);
+          var O = P(0, 0, 0);
+          var C0 = P(bx * R, by * R, cenFt);
+          var UP = P(bx * R, by * R, cenFt + halfFt), DN = P(bx * R, by * R, cenFt - halfFt);
+          var LF = P(bx * R + rx2 * halfNM, by * R + ry2 * halfNM, cenFt), RT = P(bx * R - rx2 * halfNM, by * R - ry2 * halfNM, cenFt);
+          poly([O, UP, DN], 'rgba(55,226,238,0.13)', 'rgba(55,226,238,0.45)', 1);
+          poly([O, LF, RT], 'rgba(55,226,238,0.10)', 'rgba(55,226,238,0.35)', 1);
+          poly([UP, C0, DN], 'rgba(55,226,238,0.10)', null, 1);
+          if(C0){ x.fillStyle = 'rgba(55,226,238,0.9)'; x.font = '11px "Share Tech Mono",monospace'; x.textAlign = 'center'; x.fillText('BEAM @ ' + R + ' NM · TILT ' + tilt.toFixed(1) + '°', C0.x, C0.y - 8); }
+        } catch(e){}
+      }
+      // aircraft jet (scale exaggerated)
+      (function(){
+        var rX = Math.cos(hdgR), rY = -Math.sin(hdgR);
+        function L(f, r, zFt){ return P(fwdX * f + rX * r, fwdY * f + rY * r, zFt || 0); }
+        var nose = L(2.6, 0), tail = L(-2.4, 0), wl = L(-0.1, -2.5), wr = L(-0.1, 2.5);
+        var tl = L(-2.4, -1.0), tr = L(-2.4, 1.0), fin = L(-2.2, 0, 1500);
+        poly([nose, wr, tail, wl], '#d7e3ee', '#37e2ee', 1);
+        poly([tail, tr, fin, tl], '#9fb4c6', '#37e2ee', 1);
+        poly([tail, fin], '#d7e3ee', '#37e2ee', 1);
+        var ap = P(0, 0, 0);
+        if(ap){ x.fillStyle = '#37e2ee'; x.font = 'bold 12px "Share Tech Mono",monospace'; x.textAlign = 'center'; x.fillText('YOU · ' + Math.round(S.alt).toLocaleString('en-US') + ' FT', ap.x, ap.y + 26); }
+      })();
+      x.fillStyle = 'rgba(55,226,238,0.75)'; x.font = '12px "Share Tech Mono",monospace'; x.textAlign = 'left';
+      x.fillText('AIRCRAFT & WEATHER — TRUE WEATHER DIORAMA (NOT RADAR)', 12, 22);
+      if(typeof fx !== 'undefined' && fx && fx.dead){
+        x.fillStyle = 'rgba(20,2,2,0.72)'; x.fillRect(0, 0, W, H);
+        x.fillStyle = '#ff6b5e'; x.font = 'bold 20px "Share Tech Mono",monospace'; x.textAlign = 'center';
+        x.fillText('AIRCRAFT DISINTEGRATED — STRUCTURAL OVERLOAD', W / 2, H / 2);
+      }
+      var cap2 = ovEl('extCaption');
+      if(cap2) cap2.textContent = 'Vertical exaggeration ×' + ovVex + ' · aircraft symbol exaggerated (~20×) so it stays readable at weather scale · ground grid every 20 NM · beam shown to your selected ' + range + ' NM range at current tilt.';
+    }
+
+    /* ---------------- isolated render loop ---------------- */
+    function ovFrame(){
+      try { if(ovOn.external) drawExternal(); } catch(e){ if(window.console) console.warn('External view error (radar unaffected):', e); }
+      requestAnimationFrame(ovFrame);
+    }
+    requestAnimationFrame(ovFrame);
+    /* Test hooks for the verification probe */
+    window.OV_TEST = { on: ovOn, setCam: ovSetCam, cam: ovCam, drawExternal: drawExternal };
+    </script>
+  </body>
+</html>
