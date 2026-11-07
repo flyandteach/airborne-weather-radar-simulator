@@ -20,9 +20,13 @@ beyond an optional web font (it falls back to system fonts offline).
 
 ## Important
 
-This is a **generic training approximation**. Beam width, predictive-windshear
-ranges and thresholds, turbulence and structural values are representative
-training values — they are **not** the specifications of the RDR-4000 or any
-specific radar, and not a structural model of any specific aircraft.
+This is a **generic training approximation**. Beam width varies by radar and
+antenna — commonly about 3° on large flat-plate antennas to 10° or more on
+smaller ones; this simulator uses a fixed, representative 3.5° beam, so learn
+the technique here and take the exact numbers from your own radar's manual.
+Predictive-windshear ranges and thresholds, turbulence and structural values
+are representative training values — they are **not** the specifications of the
+RDR-4000 or any specific radar, and not a structural model of any specific
+aircraft.
 
 **Training aid only — not for navigation or operational use.**
